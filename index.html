@@ -1,0 +1,1073 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4ecd8">
+<title>English Listening Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f4ecd8;
+    --paper-2:#ece2c6;
+    --ink:#1f1a14;
+    --ink-soft:#4a3f2d;
+    --accent:#b5361f;       /* timbro rosso */
+    --accent-soft:#e8c7bf;
+    --ok:#2f7a3a;
+    --warn:#b78b1c;
+    --bad:#a82622;
+    --line:#1f1a14;
+    --shadow: 3px 3px 0 #1f1a14;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;font-size:15px;line-height:1.5}
+  body{
+    background-image:
+      radial-gradient(rgba(31,26,20,.10) 1px, transparent 1.2px);
+    background-size: 14px 14px;
+    background-attachment: fixed;
+    padding: 14px 12px 80px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif;color:var(--ink);margin:0 0 8px;line-height:1.15;letter-spacing:.2px}
+  h1{font-size:32px;font-weight:800}
+  h2{font-size:22px;font-weight:800}
+  h3{font-size:17px;font-weight:600}
+  p{margin:0 0 8px}
+  .muted{color:var(--ink-soft);font-size:13px}
+  .tag{display:inline-block;border:1.5px solid var(--line);padding:2px 8px;border-radius:999px;font-size:12px;background:var(--paper-2)}
+  .card{
+    background:var(--paper);
+    border:2px solid var(--line);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:14px;
+  }
+  .card.accent{background:linear-gradient(180deg,var(--accent-soft),var(--paper) 80%)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .grow{flex:1 1 auto}
+  label{display:block;font-size:13px;color:var(--ink-soft);margin:8px 0 4px}
+  input[type=text],input[type=url],input[type=date],input[type=number],input[type=password],textarea,select{
+    width:100%;
+    border:2px solid var(--line);
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:8px;
+    padding:11px 12px;
+    font:inherit;
+    box-shadow: 2px 2px 0 var(--line);
+  }
+  textarea{min-height:90px;resize:vertical}
+  input:focus,textarea:focus,select:focus{outline:none;background:#fff8e6}
+  button, .btn{
+    appearance:none;
+    border:2px solid var(--line);
+    background:var(--paper-2);
+    color:var(--ink);
+    font:inherit;
+    font-weight:600;
+    padding:11px 14px;
+    border-radius:8px;
+    box-shadow: 2px 2px 0 var(--line);
+    cursor:pointer;
+    min-height:44px;
+  }
+  button:active{transform:translate(2px,2px);box-shadow:none}
+  button.primary{background:var(--accent);color:#fff;border-color:var(--line)}
+  button.ghost{background:transparent}
+  button[disabled]{opacity:.45;cursor:not-allowed}
+  .pill{display:inline-block;padding:4px 10px;border-radius:999px;border:2px solid var(--line);font-weight:700;font-size:12px}
+  .pill.ok{background:#cdebd2;color:#19451f}
+  .pill.warn{background:#f5e2a8;color:#5b4505}
+  .pill.bad{background:#f0c1bf;color:#4d100d}
+  .big{font-family:'Fraunces',serif;font-size:54px;font-weight:800;line-height:1}
+  .step{display:flex;gap:8px;align-items:center;margin-top:8px}
+  .step .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:inline-flex;align-items:center;justify-content:center;background:var(--paper-2);font-size:13px;font-weight:700}
+  .step.done .dot{background:var(--ok);color:#fff}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;text-align:left;border-bottom:1px dashed rgba(31,26,20,.35);vertical-align:middle}
+  th{font-family:'Fraunces',serif;font-weight:600;color:var(--ink-soft)}
+  .thumb{width:96px;height:54px;object-fit:cover;border:1.5px solid var(--line);border-radius:5px;background:#0001;display:block}
+  .thumb-lg{width:100%;max-width:360px;aspect-ratio:16/9;object-fit:cover;border:2px solid var(--line);border-radius:8px;display:block}
+  a{color:var(--accent);font-weight:600;text-decoration: underline dotted}
+  .hr{height:1px;background:rgba(31,26,20,.25);margin:10px 0;border-radius:1px}
+  .warning,.ok-banner,.err-banner{
+    display:block;
+    padding:8px 10px;border-radius:8px;font-size:13px;
+    margin:6px 0;
+    overflow-wrap:anywhere;word-break:break-word;
+    border:2px solid var(--line);
+  }
+  .warning{background:#fff3c2;border-style:dashed}
+  .ok-banner{background:#cdebd2}
+  .err-banner{background:#f0c1bf}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:520px){.grid2{grid-template-columns:1fr}}
+  .quiz-q{border:2px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:var(--paper)}
+  .quiz-q .opts{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .quiz-q .opt{display:flex;gap:8px;align-items:flex-start;padding:8px;border:1.5px solid var(--line);border-radius:6px;cursor:pointer;background:var(--paper-2)}
+  .quiz-q .opt.sel{background:#fff8e6}
+  .quiz-q .opt.right{background:#cdebd2}
+  .quiz-q .opt.wrong{background:#f0c1bf}
+  .chart{width:100%;height:160px;border:1.5px dashed rgba(31,26,20,.4);border-radius:8px;background:#fff8e6}
+  details>summary{cursor:pointer;font-weight:700}
+  .key-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .stamp{
+    display:inline-block;border:3px double var(--accent);color:var(--accent);
+    padding:2px 10px;font-family:'Fraunces',serif;font-weight:800;
+    letter-spacing:2px;transform:rotate(-3deg);font-size:13px;background:rgba(255,255,255,.4)
+  }
+  .nowrap{white-space:nowrap}
+  .right{text-align:right}
+  .small{font-size:12px}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============ HEADER ============ -->
+  <header class="card accent">
+    <div class="row" style="justify-content:space-between">
+      <h1>English Listening Tracker</h1>
+      <span class="stamp">PERSONAL</span>
+    </div>
+    <p class="muted" style="margin-top:4px">Many videos to train, <strong>ONE</strong> video to measure.</p>
+    <div class="hr"></div>
+    <div class="grid2">
+      <div>
+        <h3>🏋️ TRAINING (daily)</h3>
+        <p class="small">Always <em>new</em> videos. Listen first <strong>without</strong> subtitles, then again <strong>with</strong> subtitles ("ah, that's what they said"). Feeds the <strong>Consistency</strong> indicator.</p>
+      </div>
+      <div>
+        <h3>📐 MEASURE (every 2 weeks)</h3>
+        <p class="small">Always the <em>same</em> "champion video". Blind re-listen, record % understood. Same video = real progress. Feeds the <strong>Comprehension</strong> indicator.</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ CONFIG / STATO ============ -->
+  <section class="card" id="cardConfig">
+    <h2>⚙️ Settings</h2>
+    <p class="muted" id="authStatus">Connecting…</p>
+    <details>
+      <summary>OpenAI key (this browser only)</summary>
+      <div class="warning" style="margin-top:8px">
+        Key stored <strong>only</strong> in this browser's localStorage. Don't share this page.
+        Set a <strong>spending limit</strong> on your OpenAI account.
+      </div>
+      <label for="openaiKey">OpenAI API Key</label>
+      <input type="password" id="openaiKey" placeholder="sk-…" autocomplete="off">
+      <div class="row" style="margin-top:8px">
+        <button id="saveKey">Save key</button>
+        <button id="forgetKey" class="ghost">Forget key</button>
+        <span id="keyState" class="muted small"></span>
+      </div>
+    </details>
+    <details>
+      <summary>Backup / Reset</summary>
+      <div class="row" style="margin-top:8px">
+        <button id="exportBtn">⬇️ Export data (JSON)</button>
+        <label class="btn" for="importFile" style="margin:0">⬆️ Import data</label>
+        <input type="file" id="importFile" accept="application/json" class="hidden">
+        <button id="resetBtn" class="ghost">🧨 Local reset (cache only)</button>
+      </div>
+      <p class="muted small" style="margin-top:6px">Import appends data, does not overwrite. Reset clears only this browser's cache, not Firestore.</p>
+    </details>
+  </section>
+
+  <!-- ============ A. NUOVA SESSIONE ============ -->
+  <section class="card">
+    <h2>🆕 New session</h2>
+    <label for="sessUrl">YouTube link</label>
+    <input type="url" id="sessUrl" placeholder="https://www.youtube.com/watch?v=…" inputmode="url" autocomplete="off">
+    <div id="sessPreview" class="hidden" style="margin-top:8px">
+      <img id="sessThumb" class="thumb-lg" alt="Video preview">
+      <p><a id="sessOpen" href="#" target="_blank" rel="noopener">▶ Open on YouTube</a></p>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <label for="sessDate">Date</label>
+        <input type="date" id="sessDate">
+      </div>
+      <div>
+        <label for="sessTs">Re-listen timestamp (opt.)</label>
+        <input type="text" id="sessTs" placeholder="e.g. 12:34" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="step" id="stepA">
+      <span class="dot">1</span>
+      <button id="btnAscolto">First listen done</button>
+      <span class="muted small">without subtitles</span>
+    </div>
+    <div class="step" id="stepR">
+      <span class="dot">2</span>
+      <button id="btnRiascolto" disabled>Re-listen done</button>
+      <span class="muted small">with subtitles</span>
+    </div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="btnSave" class="primary" disabled>💾 Save session</button>
+      <span id="saveStatus" class="muted small"></span>
+    </div>
+    <div id="lastSaved" class="hidden" style="margin-top:10px">
+      <div class="hr"></div>
+      <h3>Last saved session</h3>
+      <img id="lastThumb" class="thumb-lg" alt="">
+      <p><a id="lastOpen" target="_blank" rel="noopener">▶ Open on YouTube</a></p>
+    </div>
+  </section>
+
+  <!-- ============ A2. QUIZ ============ -->
+  <section class="card" id="cardQuiz">
+    <h2>🧠 AI Quiz (1 per day)</h2>
+    <p class="muted small" id="quizIntro">After marking "First listen done", generate 20 questions about the video.</p>
+    <div id="quizGate" class="muted small">Enter a link and mark "First listen done" to enable the quiz.</div>
+
+    <div id="quizControls" class="hidden">
+      <div class="row">
+        <button id="btnGenQuiz" class="primary">✨ Generate quiz</button>
+        <span id="quizStatus" class="muted small"></span>
+      </div>
+      <details style="margin-top:8px">
+        <summary>Manual transcript (if auto-fetch fails)</summary>
+        <label for="manualTranscript">Paste the transcript here</label>
+        <textarea id="manualTranscript" placeholder="Paste the video transcript here…"></textarea>
+        <button id="btnGenFromManual">Generate from pasted text</button>
+      </details>
+    </div>
+
+    <div id="quizArea" class="hidden" style="margin-top:12px"></div>
+    <div id="quizResult" class="hidden" style="margin-top:10px"></div>
+  </section>
+
+  <!-- ============ B. COSTANZA ============ -->
+  <section class="card">
+    <h2>🔥 Consistency (this week)</h2>
+    <div class="row" style="align-items:flex-end">
+      <div class="big" id="costanzaCount">0 / 5</div>
+      <div><span id="costanzaPill" class="pill bad">BELOW TARGET</span></div>
+    </div>
+    <p class="muted small" id="costanzaSub">Mon–Sun. Target: 5 complete sessions (listen + re-listen) per week.</p>
+  </section>
+
+  <!-- ============ C. HISTORY ============ -->
+  <section class="card">
+    <h2>📜 Session history</h2>
+    <div style="overflow:auto">
+      <table id="histTable">
+        <thead><tr><th>Date</th><th>Video</th><th>L</th><th>R</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="muted small" id="histEmpty">No sessions yet.</p>
+  </section>
+
+  <!-- ============ D. COMPREHENSION ============ -->
+  <section class="card">
+    <h2>📐 Comprehension (champion video)</h2>
+    <div class="grid2">
+      <div>
+        <label for="mDate">Measure date</label>
+        <input type="date" id="mDate">
+      </div>
+      <div>
+        <label for="mPct">% understood (0–100)</label>
+        <input type="number" id="mPct" min="0" max="100" step="1" inputmode="numeric">
+      </div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="btnSaveMeasure" class="primary">💾 Save measure</button>
+      <span id="measureStatus" class="muted small"></span>
+    </div>
+    <div class="hr"></div>
+    <svg id="measureChart" class="chart" viewBox="0 0 600 160" preserveAspectRatio="none"></svg>
+    <p id="measureHint" class="muted small" style="margin-top:6px"></p>
+  </section>
+
+  <!-- ============ H. QUIZ TREND ============ -->
+  <section class="card">
+    <h2>📈 Quiz trend</h2>
+    <svg id="quizChart" class="chart" viewBox="0 0 600 160" preserveAspectRatio="none"></svg>
+    <p id="quizHint" class="muted small" style="margin-top:6px"></p>
+  </section>
+
+  <!-- ============ E. NOTES ============ -->
+  <section class="card">
+    <h2>📝 Notes</h2>
+    <label for="noteText">Thoughts, observations, blockers…</label>
+    <textarea id="noteText" placeholder="Write something…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="btnSaveNote" class="primary">💾 Save note</button>
+      <span id="noteStatus" class="muted small"></span>
+    </div>
+    <div class="hr"></div>
+    <div style="overflow:auto">
+      <table id="notesTable">
+        <thead><tr><th>Date</th><th>Note</th><th class="nowrap">% at the time</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="muted small" id="notesEmpty">No notes yet.</p>
+  </section>
+
+  <!-- ============ F. CHAMPION ============ -->
+  <section class="card">
+    <h2>🏆 Champion video</h2>
+    <p class="warning">This is the <strong>fixed yardstick</strong> for Comprehension. <em>Don't change it</em> if you want the measure to mean anything.</p>
+    <label for="champUrl">YouTube link</label>
+    <input type="url" id="champUrl" placeholder="https://…" inputmode="url">
+    <label for="champRange">Measured range</label>
+    <input type="text" id="champRange" placeholder="e.g. 0:00 - 2:30">
+    <div class="row" style="margin-top:8px">
+      <button id="btnSaveChamp" class="primary">💾 Save champion</button>
+      <span id="champStatus" class="muted small"></span>
+    </div>
+    <div id="champPreview" class="hidden" style="margin-top:10px">
+      <img id="champThumb" class="thumb-lg" alt="">
+      <p><a id="champOpen" target="_blank" rel="noopener">▶ Open on YouTube</a> · <span id="champRangeShow" class="tag"></span></p>
+    </div>
+  </section>
+
+  <footer class="muted small" style="text-align:center;padding:10px 0">
+    handmade · v1
+  </footer>
+</div>
+
+<!-- ====================================================================
+     CONFIG — INCOLLA QUI LE TUE CHIAVI FIREBASE
+     1) Create a project at https://console.firebase.google.com
+     2) Enable Firestore (production mode)
+     3) Enable Authentication -> Sign-in method -> Anonymous
+     4) Project settings -> "Your apps" -> Web -> copy the config below
+     ==================================================================== -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import {
+  getAuth, signInAnonymously, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs,
+  query, orderBy, serverTimestamp, deleteDoc, writeBatch, enableIndexedDbPersistence
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+// ============ FIREBASE CONFIG — SOSTITUISCI =================
+const firebaseConfig = {
+  apiKey: "AIzaSyCgTjk5OBF-vfAHuUCdePKHRfh4mAisTxM",
+  authDomain: "tracker-3cc6c.firebaseapp.com",
+  projectId: "tracker-3cc6c",
+  storageBucket: "tracker-3cc6c.firebasestorage.app",
+  messagingSenderId: "815821534456",
+  appId: "1:815821534456:web:bf7320cbc84881c1a4370d"
+};
+// ============================================================
+
+// ---------- OpenAI model ----------
+const OPENAI_MODEL = "gpt-4o-mini"; // economico e ok per quiz
+
+// ---------- Boot ----------
+const $ = id => document.getElementById(id);
+const fmtDate = d => {
+  if (!d) return "";
+  const x = new Date(d);
+  if (isNaN(x)) return String(d);
+  return x.toISOString().slice(0,10);
+};
+const todayISO = () => new Date().toISOString().slice(0,10);
+
+let app, auth, db, uid=null;
+let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null };
+
+const authMsg = $("authStatus");
+
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  try { await enableIndexedDbPersistence(db); } catch(e){ /* multi-tab o non supportato */ }
+  authMsg.textContent = "Authenticating…";
+  await signInAnonymously(auth);
+  onAuthStateChanged(auth, async user => {
+    if (!user) { authMsg.textContent = "Not authenticated."; return; }
+    uid = user.uid;
+    authMsg.innerHTML = `Connected · <span class="tag">uid:${uid.slice(0,6)}…</span>`;
+    await loadAll();
+    renderAll();
+  });
+} catch (e) {
+  authMsg.innerHTML = `<span class="err-banner">Firebase not configured. Paste your keys in the CONFIG block at the top of the script.<br>Error: ${e.message}</span>`;
+}
+
+// ---------- Firestore paths ----------
+const userCol = (sub) => collection(db, "users", uid, sub);
+const champDoc = () => doc(db, "users", uid, "config", "champion");
+
+// ---------- Loaders ----------
+async function loadAll() {
+  cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null };
+  try {
+    const subs = ["sessions","measures","notes","quizAttempts"];
+    for (const s of subs) {
+      const snap = await getDocs(query(userCol(s), orderBy("createdAt","desc")));
+      cache[s] = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    }
+    const champSnap = await getDoc(champDoc());
+    if (champSnap.exists()) cache.champion = champSnap.data();
+  } catch (e) {
+    console.warn("loadAll", e);
+  }
+}
+
+// ---------- YouTube helpers ----------
+function ytId(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    const h = u.hostname.replace(/^www\./,"");
+    if (h === "youtu.be") return u.pathname.slice(1).split(/[/?#]/)[0] || null;
+    if (h.endsWith("youtube.com") || h.endsWith("youtube-nocookie.com")) {
+      if (u.pathname === "/watch") return u.searchParams.get("v");
+      const parts = u.pathname.split("/").filter(Boolean);
+      const i = parts.findIndex(p => ["embed","shorts","live","v"].includes(p));
+      if (i>=0 && parts[i+1]) return parts[i+1];
+    }
+  } catch(e) {
+    // raw id fallback
+    const m = String(url).match(/[A-Za-z0-9_-]{11}/);
+    if (m) return m[0];
+  }
+  return null;
+}
+function ytThumb(id){ return `https://i.ytimg.com/vi/${id}/mqdefault.jpg`; }
+function ytUrl(id){ return `https://www.youtube.com/watch?v=${id}`; }
+function attachThumbFallback(img, id){
+  img.onerror = () => { img.onerror=null; img.src = `https://i.ytimg.com/vi/${id}/hqdefault.jpg`; };
+}
+
+// ---------- A. New session ----------
+const sessUrl = $("sessUrl"), sessPrev = $("sessPreview"), sessThumb=$("sessThumb"), sessOpen=$("sessOpen");
+const sessDate = $("sessDate"), sessTs = $("sessTs");
+const btnAscolto = $("btnAscolto"), btnRiascolto = $("btnRiascolto"), btnSave = $("btnSave");
+const stepA = $("stepA"), stepR = $("stepR");
+const lastSaved = $("lastSaved"), lastThumb=$("lastThumb"), lastOpen=$("lastOpen");
+const saveStatus = $("saveStatus");
+let ascoltoDone=false, riascoltoDone=false;
+sessDate.value = todayISO();
+
+function refreshPreview() {
+  const id = ytId(sessUrl.value);
+  if (id) {
+    sessThumb.src = ytThumb(id);
+    attachThumbFallback(sessThumb, id);
+    sessOpen.href = ytUrl(id);
+    sessPrev.classList.remove("hidden");
+  } else {
+    sessPrev.classList.add("hidden");
+  }
+  refreshQuizGate();
+  refreshSaveButton();
+}
+sessUrl.addEventListener("input", refreshPreview);
+
+function setAscolto(v) {
+  ascoltoDone = v;
+  stepA.classList.toggle("done", v);
+  btnAscolto.textContent = v ? "✓ First listen done" : "First listen done";
+  btnRiascolto.disabled = !v;
+  if (!v) setRiascolto(false);
+  refreshSaveButton();
+  refreshQuizGate();
+}
+function setRiascolto(v) {
+  riascoltoDone = v;
+  stepR.classList.toggle("done", v);
+  btnRiascolto.textContent = v ? "✓ Re-listen done" : "Re-listen done";
+  refreshSaveButton();
+}
+function refreshSaveButton(){
+  btnSave.disabled = !(ascoltoDone && riascoltoDone && ytId(sessUrl.value));
+}
+btnAscolto.addEventListener("click", () => setAscolto(!ascoltoDone));
+btnRiascolto.addEventListener("click", () => { if (ascoltoDone) setRiascolto(!riascoltoDone); });
+
+btnSave.addEventListener("click", async () => {
+  const id = ytId(sessUrl.value);
+  if (!id || !ascoltoDone || !riascoltoDone) return;
+  btnSave.disabled = true; saveStatus.textContent = "Saving…";
+  const data = {
+    date: sessDate.value || todayISO(),
+    url: sessUrl.value.trim(),
+    videoId: id,
+    timestamp: sessTs.value.trim(),
+    ascolto: true,
+    riascolto: true,
+    createdAt: serverTimestamp()
+  };
+  try {
+    const ref = await addDoc(userCol("sessions"), data);
+    cache.sessions.unshift({ id: ref.id, ...data, createdAt: new Date() });
+    saveStatus.innerHTML = '<span class="ok-banner">Saved!</span>';
+    // show last
+    lastThumb.src = ytThumb(id);
+    attachThumbFallback(lastThumb, id);
+    lastOpen.href = ytUrl(id);
+    lastSaved.classList.remove("hidden");
+    // reset form
+    sessUrl.value=""; sessTs.value=""; sessDate.value=todayISO();
+    setAscolto(false);
+    refreshPreview();
+    renderCostanza(); renderHist();
+  } catch(e) {
+    saveStatus.innerHTML = `<span class="err-banner">Error: ${e.message}</span>`;
+    btnSave.disabled = false;
+  }
+});
+
+// ---------- B. Costanza ----------
+function startOfWeek(d){
+  const x = new Date(d); const day = (x.getDay()+6)%7; // 0=lun
+  x.setHours(0,0,0,0); x.setDate(x.getDate()-day); return x;
+}
+function renderCostanza(){
+  const now = new Date();
+  const mon = startOfWeek(now);
+  const sun = new Date(mon); sun.setDate(sun.getDate()+7);
+  const n = cache.sessions.filter(s => {
+    const d = new Date(s.date); return d>=mon && d<sun;
+  }).length;
+  $("costanzaCount").textContent = `${n} / 5`;
+  const pill = $("costanzaPill");
+  pill.classList.remove("ok","warn","bad");
+  if (n>=4) { pill.classList.add("ok"); pill.textContent="ON TRACK"; }
+  else if (n===3) { pill.classList.add("warn"); pill.textContent="ALMOST"; }
+  else { pill.classList.add("bad"); pill.textContent="BELOW TARGET"; }
+}
+
+// ---------- C. Storico ----------
+function renderHist(){
+  const tbody = $("histTable").querySelector("tbody");
+  const list = [...cache.sessions].sort((a,b)=> (b.date||"").localeCompare(a.date||""));
+  tbody.innerHTML = "";
+  for (const s of list) {
+    const tr = document.createElement("tr");
+    const img = document.createElement("img");
+    img.className="thumb"; img.src = ytThumb(s.videoId); img.alt="";
+    attachThumbFallback(img, s.videoId);
+    const td2 = document.createElement("td");
+    td2.appendChild(img);
+    const link = document.createElement("a"); link.href = s.url || ytUrl(s.videoId); link.target="_blank"; link.rel="noopener";
+    link.textContent = s.timestamp ? `▶ @${s.timestamp}` : "▶ open";
+    td2.appendChild(document.createElement("br"));
+    td2.appendChild(link);
+
+    tr.innerHTML = `<td class="nowrap">${fmtDate(s.date)}</td>`;
+    tr.appendChild(td2);
+    const tdA = document.createElement("td"); tdA.textContent = s.ascolto?"✓":"";
+    const tdR = document.createElement("td"); tdR.textContent = s.riascolto?"✓":"";
+    tr.appendChild(tdA); tr.appendChild(tdR);
+
+    const tdDel = document.createElement("td"); tdDel.className="right";
+    const delBtn = document.createElement("button"); delBtn.className="ghost small"; delBtn.textContent="🗑";
+    delBtn.style.padding="4px 8px"; delBtn.style.minHeight="auto";
+    delBtn.onclick = async () => {
+      if (!confirm("Delete this session?")) return;
+      try { await deleteDoc(doc(db,"users",uid,"sessions",s.id)); cache.sessions = cache.sessions.filter(x=>x.id!==s.id); renderHist(); renderCostanza(); } catch(e){ alert("Error: "+e.message); }
+    };
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  }
+  $("histEmpty").style.display = list.length ? "none" : "";
+}
+
+// ---------- D. Comprensione ----------
+$("mDate").value = todayISO();
+$("btnSaveMeasure").addEventListener("click", async () => {
+  const date = $("mDate").value || todayISO();
+  const pct = Math.max(0, Math.min(100, parseInt($("mPct").value,10)));
+  if (isNaN(pct)) { $("measureStatus").innerHTML='<span class="err-banner">Enter a %.</span>'; return; }
+  const data = { date, percent: pct, createdAt: serverTimestamp() };
+  try {
+    const ref = await addDoc(userCol("measures"), data);
+    cache.measures.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    $("measureStatus").innerHTML='<span class="ok-banner">Saved.</span>';
+    $("mPct").value="";
+    renderMeasures();
+  } catch(e) {
+    $("measureStatus").innerHTML=`<span class="err-banner">Error: ${e.message}</span>`;
+  }
+});
+
+function renderMeasures(){
+  const svg = $("measureChart");
+  const list = [...cache.measures].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  drawBars(svg, list.map(x=>({label:fmtDate(x.date), value:x.percent, max:100})));
+  const hint = $("measureHint");
+  if (list.length < 2) {
+    hint.textContent = list.length ? "Need at least 2 measures to talk about a trend." : "No measures yet.";
+  } else {
+    const first = list[0].percent, last = list[list.length-1].percent;
+    const d = last - first;
+    let copy;
+    if (d > 4) copy = `+${d} points from the first measure. Keep going.`;
+    else if (d < -4) copy = `${d} points from the first measure. It happens — revisit your method.`;
+    else copy = `Change ${d>=0?"+":""}${d} points. It's a tree, not an ATM.`;
+    hint.textContent = copy;
+  }
+}
+
+// ---------- E. Note ----------
+$("btnSaveNote").addEventListener("click", async () => {
+  const text = $("noteText").value.trim();
+  if (!text) return;
+  const sortedM = [...cache.measures].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  const lastPct = sortedM.length ? sortedM[0].percent : null;
+  const data = { date: todayISO(), text, percentAtTime: lastPct, createdAt: serverTimestamp() };
+  try {
+    const ref = await addDoc(userCol("notes"), data);
+    cache.notes.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    $("noteText").value="";
+    $("noteStatus").innerHTML='<span class="ok-banner">Note saved.</span>';
+    renderNotes();
+  } catch(e) {
+    $("noteStatus").innerHTML=`<span class="err-banner">Error: ${e.message}</span>`;
+  }
+});
+function renderNotes(){
+  const tbody = $("notesTable").querySelector("tbody");
+  tbody.innerHTML = "";
+  const list = [...cache.notes].sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  for (const n of list) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="nowrap">${fmtDate(n.date)}</td><td></td><td class="nowrap">${n.percentAtTime==null?"—":n.percentAtTime+"%"}</td>`;
+    tr.children[1].textContent = n.text;
+    tbody.appendChild(tr);
+  }
+  $("notesEmpty").style.display = list.length ? "none" : "";
+}
+
+// ---------- F. Champion ----------
+$("btnSaveChamp").addEventListener("click", async () => {
+  const url = $("champUrl").value.trim();
+  const range = $("champRange").value.trim();
+  const id = ytId(url);
+  if (!id) { $("champStatus").innerHTML='<span class="err-banner">Invalid link.</span>'; return; }
+  if (cache.champion && cache.champion.videoId && cache.champion.videoId!==id) {
+    if (!confirm("You're changing the champion video. Previous measures will lose meaning. Proceed?")) return;
+  }
+  const data = { url, videoId:id, range };
+  try {
+    await setDoc(champDoc(), data);
+    cache.champion = data;
+    $("champStatus").innerHTML='<span class="ok-banner">Saved.</span>';
+    renderChampion();
+  } catch(e) {
+    $("champStatus").innerHTML=`<span class="err-banner">Error: ${e.message}</span>`;
+  }
+});
+function renderChampion(){
+  const c = cache.champion;
+  if (!c || !c.videoId) { $("champPreview").classList.add("hidden"); return; }
+  $("champUrl").value = c.url || "";
+  $("champRange").value = c.range || "";
+  $("champThumb").src = ytThumb(c.videoId);
+  attachThumbFallback($("champThumb"), c.videoId);
+  $("champOpen").href = c.url || ytUrl(c.videoId);
+  $("champRangeShow").textContent = c.range || "—";
+  $("champPreview").classList.remove("hidden");
+}
+
+// ---------- Charts (SVG) ----------
+function drawBars(svg, items){
+  svg.innerHTML = "";
+  if (!items.length) return;
+  const W=600,H=160,pad=20;
+  const bw = (W-pad*2)/items.length;
+  const max = Math.max(100, ...items.map(i=>i.value||0));
+  // axis
+  const axis = `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#1f1a14" stroke-width="1.2"/>`;
+  svg.insertAdjacentHTML("beforeend", axis);
+  items.forEach((it,i)=>{
+    const h = (it.value/max)*(H-pad*2);
+    const x = pad + i*bw + 3;
+    const y = H-pad - h;
+    svg.insertAdjacentHTML("beforeend",
+      `<rect x="${x}" y="${y}" width="${bw-6}" height="${h}" fill="#b5361f" stroke="#1f1a14" stroke-width="1.2"/>
+       <text x="${x+(bw-6)/2}" y="${y-3}" text-anchor="middle" font-size="11" font-family="JetBrains Mono">${it.value}</text>`);
+  });
+}
+function drawLine(svg, points){
+  svg.innerHTML="";
+  if (!points.length) return;
+  const W=600,H=160,pad=22;
+  const max = 100;
+  const stepX = points.length>1 ? (W-pad*2)/(points.length-1) : 0;
+  svg.insertAdjacentHTML("beforeend",
+    `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#1f1a14" stroke-width="1.2"/>
+     <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#1f1a14" stroke-width="1.2"/>`);
+  let path = "";
+  points.forEach((p,i)=>{
+    const x = pad + i*stepX;
+    const y = H-pad - (p.value/max)*(H-pad*2);
+    path += (i?" L":"M")+x+" "+y;
+    svg.insertAdjacentHTML("beforeend",
+      `<circle cx="${x}" cy="${y}" r="3.5" fill="#b5361f" stroke="#1f1a14" stroke-width="1.2"/>`);
+  });
+  svg.insertAdjacentHTML("afterbegin",
+    `<path d="${path}" fill="none" stroke="#1f1a14" stroke-width="1.8"/>`);
+}
+
+// ---------- G. Quiz ----------
+const KEY_LS = "openai_key_v1";
+const QUIZ_DAY_LS = "quiz_done_day_v1";
+$("openaiKey").value = "";
+function keySet(){ return !!localStorage.getItem(KEY_LS); }
+function refreshKeyUI(){
+  $("keyState").textContent = keySet() ? "✓ key present in localStorage" : "No key saved";
+}
+$("saveKey").addEventListener("click", () => {
+  const v = $("openaiKey").value.trim();
+  if (!v) return;
+  localStorage.setItem(KEY_LS, v);
+  $("openaiKey").value="";
+  refreshKeyUI();
+});
+$("forgetKey").addEventListener("click", () => {
+  localStorage.removeItem(KEY_LS);
+  refreshKeyUI();
+});
+refreshKeyUI();
+
+function refreshQuizGate(){
+  const id = ytId(sessUrl.value);
+  const ready = id && ascoltoDone;
+  $("quizGate").classList.toggle("hidden", !!ready);
+  $("quizControls").classList.toggle("hidden", !ready);
+  const today = todayISO();
+  if (localStorage.getItem(QUIZ_DAY_LS) === today) {
+    $("quizStatus").innerHTML = '<span class="warning">Quiz already done today.</span>';
+  } else {
+    $("quizStatus").textContent = "";
+  }
+}
+
+async function fetchTranscriptAuto(videoId){
+  const log = (...a) => console.log("[transcript]", ...a);
+  const setStatus = msg => { $("quizStatus").textContent = msg; };
+
+  // Multiple public CORS proxies. Each is unstable on its own — we cascade.
+  const proxies = [
+    { name: "corsproxy.io", make: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+    { name: "allorigins",   make: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+    { name: "codetabs",     make: u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}` },
+    { name: "thingproxy",   make: u => `https://thingproxy.freeboard.io/fetch/${u}` },
+  ];
+
+  async function viaProxy(url, label){
+    const errors = [];
+    for (const p of proxies) {
+      try {
+        log(`${label} via ${p.name} …`);
+        const res = await fetch(p.make(url), { cache: "no-store" });
+        if (!res.ok) { errors.push(`${p.name}:HTTP${res.status}`); continue; }
+        const txt = await res.text();
+        if (!txt || txt.length < 50) { errors.push(`${p.name}:empty`); continue; }
+        log(`${label} via ${p.name} OK (${txt.length} chars)`);
+        return txt;
+      } catch(e) {
+        errors.push(`${p.name}:${e.message.slice(0,40)}`);
+      }
+    }
+    throw new Error(`All proxies failed for ${label}. [${errors.join(" | ")}]`);
+  }
+
+  // bpctr + has_verified bypass the consent/age interstitial that YouTube
+  // sometimes serves to non-logged-in IPs (esp. EU; less in BR).
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}&hl=en&bpctr=9999999999&has_verified=1`;
+  setStatus("Fetching YouTube page…");
+  const html = await viaProxy(watchUrl, "watch page");
+
+  // Robust bracket-counting parser for the captionTracks array.
+  // The earlier regex (`.*?`) would fail on tracks containing nested arrays
+  // (e.g. localized name { runs: [...] }).
+  function extractCaptionTracks(src){
+    const key = '"captionTracks":';
+    const i = src.indexOf(key);
+    if (i < 0) return null;
+    let j = i + key.length;
+    while (j < src.length && src[j] !== '[') j++;
+    if (src[j] !== '[') return null;
+    const start = j;
+    let depth = 0, inStr = false, esc = false;
+    for (; j < src.length; j++) {
+      const c = src[j];
+      if (esc) { esc = false; continue; }
+      if (inStr && c === '\\') { esc = true; continue; }
+      if (c === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (c === '[') depth++;
+      else if (c === ']') {
+        depth--;
+        if (depth === 0) {
+          try { return JSON.parse(src.substring(start, j+1)); }
+          catch(e) { log("JSON.parse failed", e.message); return null; }
+        }
+      }
+    }
+    return null;
+  }
+
+  setStatus("Parsing caption tracks…");
+  const tracks = extractCaptionTracks(html);
+  if (!tracks || !tracks.length) {
+    // Help diagnose: is the HTML actually the watch page?
+    const hasPlayer = html.includes("ytInitialPlayerResponse");
+    const isConsent = html.includes("consent.youtube.com") || html.includes("ConsentBumpV2");
+    throw new Error(
+      "No caption tracks. " +
+      (isConsent ? "YouTube served a consent page. "
+        : !hasPlayer ? "Proxy returned a non-player page. "
+        : "This video probably has no subtitles at all (manual or auto).")
+    );
+  }
+  log("Tracks:", tracks.map(t => `${t.languageCode||"?"}${t.kind==="asr"?" auto":""}`).join(", "));
+
+  const enManual = tracks.find(t => /^en/i.test(t.languageCode||"") && t.kind !== "asr");
+  const enAuto   = tracks.find(t => /^en/i.test(t.languageCode||""));
+  const pick = enManual || enAuto || tracks[0];
+  let url = pick.baseUrl;
+  if (!url) throw new Error("Picked caption track has no baseUrl.");
+  // Force the legacy srv1 XML format (<text> nodes). YouTube's default for
+  // auto-captions is srv3 (<p> nodes), which the old parser missed.
+  url = url.replace(/&fmt=[^&]+/g, "") + "&fmt=srv1";
+
+  setStatus(`Downloading subtitles (${pick.languageCode||"?"}${pick.kind==="asr"?" auto":""})…`);
+  const xml = await viaProxy(url, "subtitles XML");
+  log("XML preview:", xml.slice(0, 200));
+
+  const doc = new DOMParser().parseFromString(xml, "text/xml");
+  // Support both srv1 (<text>) and srv3 (<p>) just in case.
+  let nodes = doc.getElementsByTagName("text");
+  if (!nodes.length) nodes = doc.getElementsByTagName("p");
+  if (!nodes.length) throw new Error(`Subtitles XML has no <text> or <p> nodes. First 120 chars: ${xml.slice(0,120)}`);
+
+  const decoder = document.createElement("textarea");
+  const out = [];
+  for (const n of nodes) {
+    // srv3 <p> may contain <s> children for word-level timing; textContent flattens them.
+    decoder.innerHTML = n.textContent || "";
+    const clean = decoder.value.replace(/\s+/g, " ").trim();
+    if (clean) out.push(clean);
+  }
+  const joined = out.join(" ");
+  if (joined.length < 80) throw new Error(`Transcript too short (${joined.length} chars).`);
+  log(`Transcript ready: ${joined.length} chars`);
+  return joined;
+}
+
+let currentQuiz = null;
+
+async function generateQuiz(transcript){
+  const key = localStorage.getItem(KEY_LS);
+  if (!key) { $("quizStatus").innerHTML='<span class="err-banner">Enter the OpenAI key in Settings.</span>'; return; }
+  if (!transcript || transcript.trim().length<40) {
+    $("quizStatus").innerHTML='<span class="err-banner">Transcript too short/missing. Paste the text in "Manual transcript".</span>'; return;
+  }
+  $("quizStatus").textContent = "Generating quiz…";
+  const sys = "You generate strict-JSON English listening comprehension quizzes. Output JSON only, no prose, no markdown.";
+  const userPrompt = (extra="") =>
+`Create exactly 20 multiple-choice questions in English about the following transcript.
+Each question has EXACTLY 5 options and EXACTLY one correct answer.
+Output strict JSON of the schema:
+{"questions":[{"q":"...","options":["a","b","c","d","e"],"correct":0}, ... 20 items ...]}
+No code fences, no commentary. ${extra}
+
+TRANSCRIPT:
+"""${transcript.slice(0, 12000)}"""`;
+
+  async function call(extra=""){
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          {role:"system", content: sys},
+          {role:"user", content: userPrompt(extra)}
+        ],
+        response_format: { type: "json_object" },
+        temperature: 0.4
+      })
+    });
+    if (!res.ok) throw new Error("HTTP "+res.status+" "+await res.text());
+    const j = await res.json();
+    return j.choices?.[0]?.message?.content || "";
+  }
+  function parse(txt){
+    try {
+      const o = JSON.parse(txt);
+      if (!o || !Array.isArray(o.questions)) return null;
+      const qs = o.questions.filter(q => q && typeof q.q==="string" && Array.isArray(q.options) && q.options.length===5 && Number.isInteger(q.correct) && q.correct>=0 && q.correct<5);
+      if (qs.length<10) return null;
+      return qs.slice(0,20);
+    } catch(e){ return null; }
+  }
+  try {
+    let raw = await call();
+    let qs = parse(raw);
+    if (!qs) {
+      raw = await call("STRICT: output ONLY valid JSON exactly matching the schema. 20 items.");
+      qs = parse(raw);
+    }
+    if (!qs) { $("quizStatus").innerHTML='<span class="err-banner">Parsing failed twice.</span>'; return; }
+    currentQuiz = { videoId: ytId(sessUrl.value), url: sessUrl.value.trim(), questions: qs, answers: Array(qs.length).fill(null) };
+    renderQuiz();
+    $("quizStatus").textContent = `Quiz ready: ${qs.length} questions.`;
+  } catch(e) {
+    $("quizStatus").innerHTML=`<span class="err-banner">OpenAI error: ${e.message}</span>`;
+  }
+}
+
+function renderQuiz(){
+  const area = $("quizArea"); area.innerHTML=""; area.classList.remove("hidden");
+  $("quizResult").classList.add("hidden");
+  currentQuiz.questions.forEach((q,qi)=>{
+    const card = document.createElement("div"); card.className="quiz-q";
+    const h = document.createElement("div"); h.innerHTML = `<strong>${qi+1}.</strong> ${escapeHtml(q.q)}`;
+    card.appendChild(h);
+    const opts = document.createElement("div"); opts.className="opts";
+    q.options.forEach((opt,oi)=>{
+      const row = document.createElement("label"); row.className="opt";
+      row.innerHTML = `<input type="radio" name="q${qi}" value="${oi}"> <span>${escapeHtml(opt)}</span>`;
+      row.querySelector("input").addEventListener("change", e => {
+        currentQuiz.answers[qi] = parseInt(e.target.value,10);
+        opts.querySelectorAll(".opt").forEach(x=>x.classList.remove("sel"));
+        row.classList.add("sel");
+      });
+      opts.appendChild(row);
+    });
+    card.appendChild(opts);
+    area.appendChild(card);
+  });
+  const submit = document.createElement("button");
+  submit.className="primary"; submit.textContent="✅ Submit quiz";
+  submit.addEventListener("click", submitQuiz);
+  area.appendChild(submit);
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+async function submitQuiz(){
+  if (!currentQuiz) return;
+  const today = todayISO();
+  if (localStorage.getItem(QUIZ_DAY_LS) === today) {
+    if (!confirm("You already took a quiz today. Save anyway?")) return;
+  }
+  let score=0; const per=[];
+  currentQuiz.questions.forEach((q,qi)=>{
+    const ok = currentQuiz.answers[qi] === q.correct;
+    per.push(!!ok); if (ok) score++;
+    const card = $("quizArea").children[qi];
+    if (card) {
+      card.querySelectorAll(".opt").forEach((row,oi)=>{
+        if (oi===q.correct) row.classList.add("right");
+        else if (oi===currentQuiz.answers[qi]) row.classList.add("wrong");
+      });
+    }
+  });
+  const data = {
+    date: today,
+    url: currentQuiz.url,
+    videoId: currentQuiz.videoId,
+    score, total: currentQuiz.questions.length,
+    perQuestion: per,
+    createdAt: serverTimestamp()
+  };
+  try {
+    const ref = await addDoc(userCol("quizAttempts"), data);
+    cache.quizAttempts.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    localStorage.setItem(QUIZ_DAY_LS, today);
+    $("quizResult").classList.remove("hidden");
+    $("quizResult").innerHTML = `<div class="ok-banner"><strong>Score: ${score} / ${data.total}</strong> · saved.</div>`;
+    renderQuizTrend();
+  } catch(e) {
+    $("quizResult").classList.remove("hidden");
+    $("quizResult").innerHTML = `<div class="err-banner">Save error: ${e.message}</div>`;
+  }
+}
+
+$("btnGenQuiz").addEventListener("click", async () => {
+  const id = ytId(sessUrl.value);
+  if (!id) return;
+  $("quizStatus").textContent = "Fetching transcript via CORS proxy (can take 5–15s)…";
+  try {
+    const t = await fetchTranscriptAuto(id);
+    $("quizStatus").textContent = `Transcript fetched (${t.length} chars). Generating quiz…`;
+    generateQuiz(t);
+  } catch(e) {
+    console.warn("[transcript] failed:", e);
+    $("quizStatus").innerHTML = `<span class="warning"><strong>Auto-fetch failed:</strong> ${escapeHtml(e.message)}<br>Fallback: open the video on YouTube → "…" → "Show transcript" → copy → paste below.</span>`;
+  }
+});
+$("btnGenFromManual").addEventListener("click", () => {
+  generateQuiz($("manualTranscript").value);
+});
+
+// ---------- H. Quiz trend ----------
+function renderQuizTrend(){
+  const list = [...cache.quizAttempts].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  drawLine($("quizChart"), list.map(x=>({label:x.date, value: Math.round((x.score/(x.total||20))*100)})));
+  if (!list.length) { $("quizHint").textContent="No quizzes yet."; return; }
+  const last = list[list.length-1];
+  const pct = Math.round((last.score/(last.total||20))*100);
+  $("quizHint").textContent = `Last: ${last.score}/${last.total||20} (${pct}%) · total quizzes: ${list.length}`;
+}
+
+// ---------- Backup ----------
+$("exportBtn").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify({ exportedAt:new Date().toISOString(), ...cache }, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `tracker-backup-${todayISO()}.json`; a.click();
+});
+$("importFile").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const txt = await f.text(); const obj = JSON.parse(txt);
+    const subs = ["sessions","measures","notes","quizAttempts"];
+    let added = 0;
+    for (const s of subs) {
+      if (!Array.isArray(obj[s])) continue;
+      for (const item of obj[s]) {
+        const { id, createdAt, ...rest } = item;
+        try { await addDoc(userCol(s), { ...rest, createdAt: serverTimestamp() }); added++; } catch(err){ console.warn(err); }
+      }
+    }
+    if (obj.champion && obj.champion.videoId) {
+      try { await setDoc(champDoc(), obj.champion); } catch(err){}
+    }
+    alert(`Imported ${added} records. Reloading…`);
+    await loadAll(); renderAll();
+  } catch(err){ alert("Import failed: "+err.message); }
+  e.target.value = "";
+});
+$("resetBtn").addEventListener("click", () => {
+  if (!confirm("Clear this browser's local cache? (Firestore is not touched.)")) return;
+  if (confirm("Also delete the OpenAI key from this browser?")) localStorage.removeItem(KEY_LS);
+  localStorage.removeItem(QUIZ_DAY_LS);
+  location.reload();
+});
+
+// ---------- Render all ----------
+function renderAll(){
+  renderCostanza(); renderHist(); renderMeasures(); renderNotes(); renderChampion(); renderQuizTrend();
+  refreshKeyUI(); refreshQuizGate();
+}
+</script>
+</body>
+</html>
