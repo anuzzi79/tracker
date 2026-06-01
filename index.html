@@ -770,7 +770,13 @@ async function fetchTranscriptAuto(videoId){
     { name: "thingproxy",   make: u => `https://thingproxy.freeboard.io/fetch/${u}` },
   ];
 
-  async function viaProxy(url, label){
+  function isBlockedPage(txt){
+    return /<title>\s*Sorry/i.test(txt)
+      || /unusual traffic/i.test(txt)
+      || /automated queries/i.test(txt);
+  }
+
+  async function viaProxy(url, label, accepts = txt => txt.length >= 50){
     const errors = [];
     for (const p of proxies) {
       try {
@@ -779,6 +785,8 @@ async function fetchTranscriptAuto(videoId){
         if (!res.ok) { errors.push(`${p.name}:HTTP${res.status}`); continue; }
         const txt = await res.text();
         if (!txt || txt.length < 50) { errors.push(`${p.name}:empty`); continue; }
+        if (isBlockedPage(txt)) { errors.push(`${p.name}:YouTube-blocked`); continue; }
+        if (!accepts(txt)) { errors.push(`${p.name}:unexpected-response`); continue; }
         log(`${label} via ${p.name} OK (${txt.length} chars)`);
         return txt;
       } catch(e) {
@@ -844,32 +852,66 @@ async function fetchTranscriptAuto(videoId){
   const pick = enManual || enAuto || tracks[0];
   let url = pick.baseUrl;
   if (!url) throw new Error("Picked caption track has no baseUrl.");
-  // Force the legacy srv1 XML format (<text> nodes). YouTube's default for
-  // auto-captions is srv3 (<p> nodes), which the old parser missed.
-  url = url.replace(/&fmt=[^&]+/g, "") + "&fmt=srv1";
+  url = url.replace(/&fmt=[^&]+/g, "");
 
-  setStatus(`Downloading subtitles (${pick.languageCode||"?"}${pick.kind==="asr"?" auto":""})…`);
-  const xml = await viaProxy(url, "subtitles XML");
-  log("XML preview:", xml.slice(0, 200));
+  function parseTranscript(payload){
+    const decoder = document.createElement("textarea");
+    const clean = txt => {
+      decoder.innerHTML = txt || "";
+      return decoder.value.replace(/\s+/g, " ").trim();
+    };
 
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  // Support both srv1 (<text>) and srv3 (<p>) just in case.
-  let nodes = doc.getElementsByTagName("text");
-  if (!nodes.length) nodes = doc.getElementsByTagName("p");
-  if (!nodes.length) throw new Error(`Subtitles XML has no <text> or <p> nodes. First 120 chars: ${xml.slice(0,120)}`);
+    if (/^\s*\{/.test(payload)) {
+      try {
+        const data = JSON.parse(payload);
+        const parts = [];
+        for (const event of data.events || []) {
+          const text = clean((event.segs || []).map(seg => seg.utf8 || "").join(""));
+          if (text) parts.push(text);
+        }
+        return parts.join(" ");
+      } catch(e) {
+        log("json3 parse failed:", e.message);
+      }
+    }
 
-  const decoder = document.createElement("textarea");
-  const out = [];
-  for (const n of nodes) {
-    // srv3 <p> may contain <s> children for word-level timing; textContent flattens them.
-    decoder.innerHTML = n.textContent || "";
-    const clean = decoder.value.replace(/\s+/g, " ").trim();
-    if (clean) out.push(clean);
+    const doc = new DOMParser().parseFromString(payload, "text/xml");
+    let nodes = doc.getElementsByTagName("text");
+    if (!nodes.length) nodes = doc.getElementsByTagName("p");
+    const parts = [];
+    for (const node of nodes) {
+      const text = clean(node.textContent);
+      if (text) parts.push(text);
+    }
+    return parts.join(" ");
   }
-  const joined = out.join(" ");
-  if (joined.length < 80) throw new Error(`Transcript too short (${joined.length} chars).`);
-  log(`Transcript ready: ${joined.length} chars`);
-  return joined;
+
+  // Caption tracks can return different formats. Reject proxy block pages and
+  // try JSON plus both XML variants before falling back to manual paste.
+  const formats = [
+    { name: "json3", url: `${url}&fmt=json3` },
+    { name: "srv1", url: `${url}&fmt=srv1` },
+    { name: "default", url },
+  ];
+  const errors = [];
+  for (const format of formats) {
+    try {
+      setStatus(`Downloading subtitles (${pick.languageCode||"?"}${pick.kind==="asr"?" auto":""}, ${format.name})…`);
+      const payload = await viaProxy(
+        format.url,
+        `subtitles ${format.name}`,
+        txt => /^\s*\{/.test(txt) || /<(?:text|p)(?:\s|>)/i.test(txt)
+      );
+      log(`${format.name} preview:`, payload.slice(0, 200));
+      const transcript = parseTranscript(payload);
+      if (transcript.length < 80) throw new Error(`Transcript too short (${transcript.length} chars).`);
+      log(`Transcript ready: ${transcript.length} chars`);
+      return transcript;
+    } catch(e) {
+      errors.push(`${format.name}: ${e.message}`);
+    }
+  }
+  throw new Error(`YouTube blocked every automatic subtitle attempt. ${errors.join(" | ")}`);
 }
 
 let currentQuiz = null;
