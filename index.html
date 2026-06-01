@@ -808,6 +808,7 @@ async function fetchTranscriptAuto(videoId){
   const setStatus = msg => { $("quizStatus").textContent = msg; };
   const workerUrl = localStorage.getItem(TRANSCRIPT_WORKER_URL_LS);
   const workerToken = localStorage.getItem(TRANSCRIPT_WORKER_TOKEN_LS);
+  let configuredServiceError = "";
 
   if (workerUrl && workerToken) {
     try {
@@ -824,6 +825,7 @@ async function fetchTranscriptAuto(videoId){
       return payload.transcript;
     } catch(e) {
       log("Configured transcript service failed:", e.message);
+      configuredServiceError = e.message;
       setStatus("Configured transcript service failed. Trying public fallbacks…");
     }
   }
@@ -904,12 +906,13 @@ async function fetchTranscriptAuto(videoId){
     // Help diagnose: is the HTML actually the watch page?
     const hasPlayer = html.includes("ytInitialPlayerResponse");
     const isConsent = html.includes("consent.youtube.com") || html.includes("ConsentBumpV2");
-    throw new Error(
-      "No caption tracks. " +
+    const fallbackError = "No caption tracks. " +
       (isConsent ? "YouTube served a consent page. "
         : !hasPlayer ? "Proxy returned a non-player page. "
-        : "This video probably has no subtitles at all (manual or auto).")
-    );
+        : "This video probably has no subtitles at all (manual or auto).");
+    throw new Error(configuredServiceError
+      ? `Configured service failed: ${configuredServiceError}. Public fallback also failed: ${fallbackError}`
+      : fallbackError);
   }
   log("Tracks:", tracks.map(t => `${t.languageCode||"?"}${t.kind==="asr"?" auto":""}`).join(", "));
 
