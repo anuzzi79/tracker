@@ -76,6 +76,8 @@
     box-shadow: 2px 2px 0 var(--line);
     cursor:pointer;
     min-height:44px;
+    touch-action:manipulation;
+    -webkit-tap-highlight-color:transparent;
   }
   button:active{transform:translate(2px,2px);box-shadow:none}
   button.primary{background:var(--accent);color:#fff;border-color:var(--line)}
@@ -226,17 +228,17 @@
 
     <div class="step" id="stepA">
       <span class="dot">1</span>
-      <button id="btnAscolto">First listen done</button>
+      <button type="button" id="btnAscolto">First listen done</button>
       <span class="muted small">without subtitles</span>
     </div>
     <div class="step" id="stepR">
       <span class="dot">2</span>
-      <button id="btnRiascolto" disabled>Re-listen done</button>
+      <button type="button" id="btnRiascolto" disabled>Re-listen done</button>
       <span class="muted small">with subtitles</span>
     </div>
 
     <div class="row" style="margin-top:10px">
-      <button id="btnSave" class="primary" disabled>💾 Save session</button>
+      <button type="button" id="btnSave" class="primary" disabled>💾 Save session</button>
       <span id="saveStatus" class="muted small"></span>
     </div>
     <div id="lastSaved" class="hidden" style="margin-top:10px">
@@ -588,8 +590,22 @@ function setRiascolto(v) {
 function refreshSaveButton(){
   btnSave.disabled = !(ascoltoDone && riascoltoDone && ytId(sessUrl.value));
 }
-btnAscolto.addEventListener("click", () => setAscolto(!ascoltoDone));
-btnRiascolto.addEventListener("click", () => { if (ascoltoDone) setRiascolto(!riascoltoDone); });
+function bindTap(el, handler){
+  let tapped = false;
+  el.addEventListener("pointerup", e => {
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+      tapped = true;
+      handler(e);
+      setTimeout(() => { tapped = false; }, 0);
+    }
+  });
+  el.addEventListener("click", e => {
+    if (tapped) return;
+    handler(e);
+  });
+}
+bindTap(btnAscolto, () => setAscolto(!ascoltoDone));
+bindTap(btnRiascolto, () => { if (ascoltoDone) setRiascolto(!riascoltoDone); });
 
 btnSave.addEventListener("click", async () => {
   const id = ytId(sessUrl.value);
