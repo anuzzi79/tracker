@@ -825,7 +825,7 @@ async function fetchTranscriptAuto(videoId){
       return payload.transcript;
     } catch(e) {
       log("Configured transcript service failed:", e.message);
-      configuredServiceError = e.message;
+      throw new Error(`Configured service failed: ${e.message}`);
       setStatus("Configured transcript service failed. Trying public fallbacks…");
     }
   }
