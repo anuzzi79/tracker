@@ -478,8 +478,8 @@ function applySharedCuratedSelection(url){
   localStorage.setItem("pending_curated_url_v1", selected);
   if (sessUrl.value !== selected) {
     sessUrl.value = selected;
-    refreshPreview();
   }
+  refreshPreview();
   lastAppliedCuratedSelection = selected;
 }
 
@@ -549,6 +549,7 @@ if (curatedPrefill) {
   sessUrl.value = curatedPrefill;
   localStorage.removeItem("pending_curated_url_v1");
   lastAppliedCuratedSelection = curatedPrefill;
+  refreshPreview();
 }
 
 function refreshPreview() {
