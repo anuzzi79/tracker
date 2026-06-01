@@ -419,6 +419,7 @@ let app, auth, db, uid=null;
 let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null, curation:null };
 let curationUnsub = null;
 let lastAppliedCuratedSelection = null;
+let curatedSelectionTimer = null;
 
 const authMsg = $("authStatus");
 
@@ -474,11 +475,38 @@ async function loadAll() {
 function applySharedCuratedSelection(url){
   const selected = String(url || "").trim();
   if (!selected) return;
+  localStorage.setItem("pending_curated_url_v1", selected);
   if (sessUrl.value !== selected) {
     sessUrl.value = selected;
     refreshPreview();
   }
   lastAppliedCuratedSelection = selected;
+}
+
+async function persistSharedCuratedSelection(url){
+  const selected = String(url || "").trim();
+  const id = ytId(selected);
+  if (!id || !uid) return;
+  const current = String(cache.curation?.selectedVideo || "").trim();
+  if (current === selected) return;
+  try {
+    await setDoc(curationDoc(), {
+      selectedVideo: selected,
+      selectedAt: serverTimestamp(),
+      selectedBy: uid
+    }, { merge: true });
+    localStorage.setItem("pending_curated_url_v1", selected);
+    lastAppliedCuratedSelection = selected;
+  } catch (e) {
+    console.warn("Could not persist selectedVideo", e);
+  }
+}
+
+function scheduleSharedCuratedSelectionPersist(url){
+  clearTimeout(curatedSelectionTimer);
+  const selected = String(url || "").trim();
+  if (!ytId(selected)) return;
+  curatedSelectionTimer = setTimeout(() => persistSharedCuratedSelection(selected), 350);
 }
 
 // ---------- YouTube helpers ----------
@@ -536,7 +564,10 @@ function refreshPreview() {
   refreshQuizGate();
   refreshSaveButton();
 }
-sessUrl.addEventListener("input", refreshPreview);
+sessUrl.addEventListener("input", () => {
+  refreshPreview();
+  scheduleSharedCuratedSelectionPersist(sessUrl.value);
+});
 
 function setAscolto(v) {
   ascoltoDone = v;
