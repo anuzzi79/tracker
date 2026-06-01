@@ -140,7 +140,7 @@ $("forgetKey").addEventListener("click", () => {
 });
 refreshKeyUI();
 
-function curationDoc(){ return doc(db, "users", uid, "config", "curation"); }
+function curationDoc(){ return doc(db, "shared", "curation"); }
 
 function ytId(url) {
   if (!url) return null;

@@ -327,7 +327,7 @@
       <h2 style="margin:0"> Curadoria</h2>
       <a class="btn ghost" href="curadoria.html" style="margin:0;text-decoration:none">Open bridge</a>
     </div>
-    <p class="muted small" id="curationMeta">Latest curated list synced from the bridge.</p>
+    <p class="muted small" id="curationMeta">Shared curated list synced from the bridge.</p>
     <div id="curationList"></div>
     <p class="muted small" id="curationEmpty">No curated links yet.</p>
   </section>
@@ -447,7 +447,7 @@ onAuthStateChanged(auth, async user => {
 // ---------- Firestore paths ----------
 const userCol = (sub) => collection(db, "users", uid, sub);
 const champDoc = () => doc(db, "users", uid, "config", "champion");
-const curationDoc = () => doc(db, "users", uid, "config", "curation");
+const curationDoc = () => doc(db, "shared", "curation");
 
 // ---------- Loaders ----------
 async function loadAll() {
