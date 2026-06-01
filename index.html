@@ -204,7 +204,7 @@
   </section>
 
   <!-- ============ A. NUOVA SESSIONE ============ -->
-  <section class="card">
+  <section class="card" id="cardNewSession">
     <h2>🆕 New session</h2>
     <label for="sessUrl">YouTube link</label>
     <input type="url" id="sessUrl" placeholder="https://www.youtube.com/watch?v=…" inputmode="url" autocomplete="off">
@@ -321,6 +321,17 @@
     <p id="quizHint" class="muted small" style="margin-top:6px"></p>
   </section>
 
+  <!-- ============ CURATORIA ============ -->
+  <section class="card" id="cardCuration">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h2 style="margin:0"> Curadoria</h2>
+      <a class="btn ghost" href="curadoria.html" style="margin:0;text-decoration:none">Open bridge</a>
+    </div>
+    <p class="muted small" id="curationMeta">Latest curated list synced from the bridge.</p>
+    <div id="curationList"></div>
+    <p class="muted small" id="curationEmpty">No curated links yet.</p>
+  </section>
+
   <!-- ============ E. NOTES ============ -->
   <section class="card">
     <h2>📝 Notes</h2>
@@ -377,7 +388,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs,
-  query, orderBy, serverTimestamp, deleteDoc, writeBatch, enableIndexedDbPersistence
+  query, orderBy, serverTimestamp, deleteDoc, writeBatch, enableIndexedDbPersistence, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 // ============ FIREBASE CONFIG — SOSTITUISCI =================
@@ -405,7 +416,8 @@ const fmtDate = d => {
 const todayISO = () => new Date().toISOString().slice(0,10);
 
 let app, auth, db, uid=null;
-let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null };
+let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null, curation:null };
+let curationUnsub = null;
 
 const authMsg = $("authStatus");
 
@@ -416,13 +428,18 @@ try {
   try { await enableIndexedDbPersistence(db); } catch(e){ /* multi-tab o non supportato */ }
   authMsg.textContent = "Authenticating…";
   await signInAnonymously(auth);
-  onAuthStateChanged(auth, async user => {
-    if (!user) { authMsg.textContent = "Not authenticated."; return; }
-    uid = user.uid;
-    authMsg.innerHTML = `Connected · <span class="tag">uid:${uid.slice(0,6)}…</span>`;
-    await loadAll();
-    renderAll();
-  });
+onAuthStateChanged(auth, async user => {
+  if (!user) { authMsg.textContent = "Not authenticated."; return; }
+  uid = user.uid;
+  authMsg.innerHTML = `Connected · <span class="tag">uid:${uid.slice(0,6)}…</span>`;
+  if (curationUnsub) { curationUnsub(); curationUnsub = null; }
+  curationUnsub = onSnapshot(curationDoc(), snap => {
+    cache.curation = snap.exists() ? snap.data() : null;
+    renderCuration();
+  }, err => console.warn("curation snapshot", err));
+  await loadAll();
+  renderAll();
+});
 } catch (e) {
   authMsg.innerHTML = `<span class="err-banner">Firebase not configured. Paste your keys in the CONFIG block at the top of the script.<br>Error: ${e.message}</span>`;
 }
@@ -430,6 +447,7 @@ try {
 // ---------- Firestore paths ----------
 const userCol = (sub) => collection(db, "users", uid, sub);
 const champDoc = () => doc(db, "users", uid, "config", "champion");
+const curationDoc = () => doc(db, "users", uid, "config", "curation");
 
 // ---------- Loaders ----------
 async function loadAll() {
@@ -442,6 +460,8 @@ async function loadAll() {
     }
     const champSnap = await getDoc(champDoc());
     if (champSnap.exists()) cache.champion = champSnap.data();
+    const curationSnap = await getDoc(curationDoc());
+    if (curationSnap.exists()) cache.curation = curationSnap.data();
   } catch (e) {
     console.warn("loadAll", e);
   }
@@ -482,6 +502,11 @@ const lastSaved = $("lastSaved"), lastThumb=$("lastThumb"), lastOpen=$("lastOpen
 const saveStatus = $("saveStatus");
 let ascoltoDone=false, riascoltoDone=false;
 sessDate.value = todayISO();
+const curatedPrefill = new URLSearchParams(location.search).get("curated") || localStorage.getItem("pending_curated_url_v1");
+if (curatedPrefill) {
+  sessUrl.value = curatedPrefill;
+  localStorage.removeItem("pending_curated_url_v1");
+}
 
 function refreshPreview() {
   const id = ytId(sessUrl.value);
@@ -1187,6 +1212,94 @@ function renderQuizTrend(){
   $("quizHint").textContent = `Last: ${last.score}/${last.total||20} (${pct}%) · total quizzes: ${list.length}`;
 }
 
+function curatedItems(){
+  const items = cache.curation && Array.isArray(cache.curation.items) ? cache.curation.items : [];
+  return items.filter(it => it && it.url);
+}
+
+function applyCuratedVideo(url){
+  const u = String(url || "").trim();
+  if (!u) return;
+  sessUrl.value = u;
+  refreshPreview();
+  $("cardNewSession").scrollIntoView({ behavior: "smooth", block: "start" });
+  sessUrl.focus();
+}
+
+async function updateCuration(items, rawText = ""){
+  if (!uid) return;
+  const clean = items.map(item => {
+    const url = (item.url || "").trim();
+    const videoId = ytId(url);
+    return videoId ? {
+      url,
+      videoId,
+      title: item.title || videoId,
+      addedAt: item.addedAt || todayISO()
+    } : null;
+  }).filter(Boolean);
+  await setDoc(curationDoc(), {
+    rawText,
+    items: clean,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+function renderCuration(){
+  const listBox = $("curationList");
+  const empty = $("curationEmpty");
+  const meta = $("curationMeta");
+  if (!listBox || !empty || !meta) return;
+  listBox.innerHTML = "";
+  const items = curatedItems();
+  if (!items.length) {
+    empty.style.display = "";
+    meta.textContent = "Latest curated list synced from the bridge.";
+    return;
+  }
+  empty.style.display = "none";
+  const updated = cache.curation && cache.curation.updatedAt && cache.curation.updatedAt.toDate
+    ? cache.curation.updatedAt.toDate()
+    : cache.curation && cache.curation.updatedAt ? new Date(cache.curation.updatedAt) : null;
+  if (updated && !isNaN(updated)) {
+    meta.textContent = `Latest curated list updated ${updated.toLocaleString()}`;
+  } else {
+    meta.textContent = `Latest curated list with ${items.length} links.`;
+  }
+  items.forEach((item, idx) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.alignItems = "center";
+    row.style.marginTop = "8px";
+    row.style.gap = "8px";
+    const chip = document.createElement("div");
+    chip.className = "tag";
+    chip.textContent = `${idx + 1}. ${item.title || item.videoId}`;
+    chip.style.flex = "1";
+    chip.style.overflow = "hidden";
+    chip.style.textOverflow = "ellipsis";
+    chip.style.whiteSpace = "nowrap";
+    const play = document.createElement("button");
+    play.textContent = "Play";
+    play.onclick = () => applyCuratedVideo(item.url);
+    const del = document.createElement("button");
+    del.textContent = "X";
+    del.className = "ghost";
+    del.onclick = async () => {
+      const next = items.filter((_, i) => i !== idx);
+      try {
+        await updateCuration(next, cache.curation?.rawText || "");
+      } catch (e) {
+        alert("Error: " + e.message);
+      }
+    };
+    row.appendChild(chip);
+    row.appendChild(play);
+    row.appendChild(del);
+    listBox.appendChild(row);
+  });
+}
+
 // ---------- Backup ----------
 $("exportBtn").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify({ exportedAt:new Date().toISOString(), ...cache }, null, 2)], {type:"application/json"});
@@ -1223,7 +1336,7 @@ $("resetBtn").addEventListener("click", () => {
 
 // ---------- Render all ----------
 function renderAll(){
-  renderCostanza(); renderHist(); renderMeasures(); renderNotes(); renderChampion(); renderQuizTrend();
+  renderCostanza(); renderHist(); renderMeasures(); renderNotes(); renderChampion(); renderQuizTrend(); renderCuration();
   refreshKeyUI(); refreshQuizGate();
 }
 </script>

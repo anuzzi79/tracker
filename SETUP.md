@@ -62,3 +62,11 @@ Se Supadata non trova sottotitoli per quel video, il fallback resta il transcrip
 
 - Apri il video su YouTube → "..." sotto al player → **Mostra trascrizione** → seleziona tutto, copia.
 - Nell'app, apri "Transcript manuale", incolla, "Genera dal testo incollato".
+
+---
+
+## 6) Curadoria
+
+Apri `curadoria.html`. Incolla la lista pulita di link, premi **Parsing** e la lista viene salvata in Firestore sotto `users/<uid>/config/curation`.
+
+Nella pagina Tracker trovi ora la sezione **Curadoria** con i pulsanti `Play` e `X`. `Play` porta il video nel campo `YouTube link` di `New session`; `X` rimuove il link dalla lista condivisa.
