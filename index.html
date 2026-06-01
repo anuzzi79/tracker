@@ -172,17 +172,23 @@
     <details>
       <summary>Automatic transcripts (this browser only)</summary>
       <div class="warning" style="margin-top:8px">
-        Optional reliable transcript service. Enter the Cloudflare Worker URL and your personal tracker token.
-        Both values stay only in this browser's localStorage.
+        Direct Supadata fetch from the browser. Paste your Supadata API key here; it stays only in this browser's localStorage.
       </div>
-      <label for="transcriptWorkerUrl">Cloudflare Worker URL</label>
-      <input type="url" id="transcriptWorkerUrl" placeholder="https://listening-tracker-transcript.…workers.dev" autocomplete="off">
-      <label for="transcriptWorkerToken">Tracker token</label>
-      <input type="password" id="transcriptWorkerToken" placeholder="Personal token" autocomplete="off">
+      <label for="supadataKey">Supadata API key</label>
+      <input type="password" id="supadataKey" placeholder="sd_…" autocomplete="off">
       <div class="row" style="margin-top:8px">
+        <button id="saveSupadataKey">Save key</button>
+        <button id="forgetSupadataKey" class="ghost">Forget key</button>
+        <span id="supadataKeyState" class="muted small"></span>
+      </div>
+      <div class="hidden">
+        <label for="transcriptWorkerUrl">Cloudflare Worker URL</label>
+        <input type="url" id="transcriptWorkerUrl" autocomplete="off">
+        <label for="transcriptWorkerToken">Tracker token</label>
+        <input type="password" id="transcriptWorkerToken" autocomplete="off">
         <button id="saveTranscriptConfig">Save transcript settings</button>
         <button id="forgetTranscriptConfig" class="ghost">Forget transcript settings</button>
-        <span id="transcriptConfigState" class="muted small"></span>
+        <span id="transcriptConfigState"></span>
       </div>
     </details>
     <details>
@@ -745,6 +751,7 @@ const KEY_LS = "openai_key_v1";
 const QUIZ_DAY_LS = "quiz_done_day_v1";
 const TRANSCRIPT_WORKER_URL_LS = "transcript_worker_url_v1";
 const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
+const SUPADATA_KEY_LS = "supadata_api_key_v1";
 $("openaiKey").value = "";
 function keySet(){ return !!localStorage.getItem(KEY_LS); }
 function refreshKeyUI(){
@@ -762,6 +769,24 @@ $("forgetKey").addEventListener("click", () => {
   refreshKeyUI();
 });
 refreshKeyUI();
+
+function supadataKeySet(){ return !!localStorage.getItem(SUPADATA_KEY_LS); }
+function refreshSupadataUI(){
+  $("supadataKeyState").textContent = supadataKeySet() ? "✓ key present in localStorage" : "Not configured";
+}
+$("saveSupadataKey").addEventListener("click", () => {
+  const v = $("supadataKey").value.trim();
+  if (!v) return;
+  localStorage.setItem(SUPADATA_KEY_LS, v);
+  $("supadataKey").value = "";
+  refreshSupadataUI();
+});
+$("forgetSupadataKey").addEventListener("click", () => {
+  localStorage.removeItem(SUPADATA_KEY_LS);
+  $("supadataKey").value = "";
+  refreshSupadataUI();
+});
+refreshSupadataUI();
 
 function refreshTranscriptConfigUI(){
   const configured = localStorage.getItem(TRANSCRIPT_WORKER_URL_LS)
@@ -806,6 +831,28 @@ function refreshQuizGate(){
 async function fetchTranscriptAuto(videoId){
   const log = (...a) => console.log("[transcript]", ...a);
   const setStatus = msg => { $("quizStatus").textContent = msg; };
+  const supadataKey = localStorage.getItem(SUPADATA_KEY_LS);
+  if (supadataKey) {
+    setStatus("Fetching transcript from Supadata…");
+    const upstreamUrl = new URL("https://api.supadata.ai/v1/transcript");
+    upstreamUrl.searchParams.set("url", `https://www.youtube.com/watch?v=${videoId}`);
+    upstreamUrl.searchParams.set("lang", "en");
+    upstreamUrl.searchParams.set("text", "true");
+    upstreamUrl.searchParams.set("mode", "native");
+
+    const response = await fetch(upstreamUrl, {
+      headers: { "x-api-key": supadataKey },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `Transcript provider error (${response.status}).`);
+    }
+    if (typeof payload.content !== "string" || payload.content.trim().length < 80) {
+      throw new Error("Transcript provider returned no usable captions.");
+    }
+    log(`Transcript ready: ${payload.content.length} chars`);
+    return payload.content;
+  }
   const workerUrl = localStorage.getItem(TRANSCRIPT_WORKER_URL_LS);
   const workerToken = localStorage.getItem(TRANSCRIPT_WORKER_TOKEN_LS);
   let configuredServiceError = "";

@@ -56,7 +56,9 @@ Usa "Esporta dati (JSON)" periodicamente (Impostazioni → Backup). L'import agg
 
 ## 5) Transcript del quiz
 
-L'auto-fetch del transcript YouTube **dal browser è bloccato da CORS** nella stragrande maggioranza dei casi. La via pratica:
+Il quiz ora legge il transcript direttamente da Supadata dal browser. Vai in **Settings → Automatic transcripts** e salva la tua **Supadata API key** nel campo dedicato. La chiave resta solo in `localStorage` di quel browser.
+
+Se Supadata non trova sottotitoli per quel video, il fallback resta il transcript manuale:
 
 - Apri il video su YouTube → "..." sotto al player → **Mostra trascrizione** → seleziona tutto, copia.
 - Nell'app, apri "Transcript manuale", incolla, "Genera dal testo incollato".
