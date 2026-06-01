@@ -437,14 +437,11 @@ onAuthStateChanged(auth, async user => {
   curationUnsub = onSnapshot(curationDoc(), snap => {
     cache.curation = snap.exists() ? snap.data() : null;
     const selected = cache.curation?.selectedVideo ? String(cache.curation.selectedVideo).trim() : "";
-    if (selected && selected !== lastAppliedCuratedSelection) {
-      lastAppliedCuratedSelection = selected;
-      sessUrl.value = selected;
-      refreshPreview();
-    }
+    if (selected) applySharedCuratedSelection(selected);
     renderCuration();
   }, err => console.warn("curation snapshot", err));
   await loadAll();
+  if (cache.curation?.selectedVideo) applySharedCuratedSelection(cache.curation.selectedVideo);
   renderAll();
 });
 } catch (e) {
@@ -472,6 +469,16 @@ async function loadAll() {
   } catch (e) {
     console.warn("loadAll", e);
   }
+}
+
+function applySharedCuratedSelection(url){
+  const selected = String(url || "").trim();
+  if (!selected) return;
+  if (sessUrl.value !== selected) {
+    sessUrl.value = selected;
+    refreshPreview();
+  }
+  lastAppliedCuratedSelection = selected;
 }
 
 // ---------- YouTube helpers ----------
@@ -1228,9 +1235,7 @@ function curatedItems(){
 function applyCuratedVideo(url){
   const u = String(url || "").trim();
   if (!u) return;
-  sessUrl.value = u;
-  lastAppliedCuratedSelection = u;
-  refreshPreview();
+  applySharedCuratedSelection(u);
   $("cardNewSession").scrollIntoView({ behavior: "smooth", block: "start" });
   sessUrl.focus();
 }
