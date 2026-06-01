@@ -218,12 +218,26 @@ async function saveCuration(items, rawText = ""){
   await setDoc(curationDoc(), {
     rawText,
     items,
+    selectedVideo: curation?.selectedVideo || null,
+    selectedAt: curation?.selectedAt || null,
+    selectedBy: curation?.selectedBy || null,
     updatedAt: serverTimestamp()
   }, { merge: true });
 }
 
-function applyToTracker(url){
-  localStorage.setItem("pending_curated_url_v1", url);
+async function applyToTracker(url){
+  const clean = String(url || "").trim();
+  if (!clean) return;
+  localStorage.setItem("pending_curated_url_v1", clean);
+  try {
+    await setDoc(curationDoc(), {
+      selectedVideo: clean,
+      selectedAt: serverTimestamp(),
+      selectedBy: uid || null
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Could not write selectedVideo to Firestore", e);
+  }
   window.location.href = "./";
 }
 

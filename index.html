@@ -418,6 +418,7 @@ const todayISO = () => new Date().toISOString().slice(0,10);
 let app, auth, db, uid=null;
 let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null, curation:null };
 let curationUnsub = null;
+let lastAppliedCuratedSelection = null;
 
 const authMsg = $("authStatus");
 
@@ -435,6 +436,12 @@ onAuthStateChanged(auth, async user => {
   if (curationUnsub) { curationUnsub(); curationUnsub = null; }
   curationUnsub = onSnapshot(curationDoc(), snap => {
     cache.curation = snap.exists() ? snap.data() : null;
+    const selected = cache.curation?.selectedVideo ? String(cache.curation.selectedVideo).trim() : "";
+    if (selected && selected !== lastAppliedCuratedSelection) {
+      lastAppliedCuratedSelection = selected;
+      sessUrl.value = selected;
+      refreshPreview();
+    }
     renderCuration();
   }, err => console.warn("curation snapshot", err));
   await loadAll();
@@ -506,6 +513,7 @@ const curatedPrefill = new URLSearchParams(location.search).get("curated") || lo
 if (curatedPrefill) {
   sessUrl.value = curatedPrefill;
   localStorage.removeItem("pending_curated_url_v1");
+  lastAppliedCuratedSelection = curatedPrefill;
 }
 
 function refreshPreview() {
@@ -1221,6 +1229,7 @@ function applyCuratedVideo(url){
   const u = String(url || "").trim();
   if (!u) return;
   sessUrl.value = u;
+  lastAppliedCuratedSelection = u;
   refreshPreview();
   $("cardNewSession").scrollIntoView({ behavior: "smooth", block: "start" });
   sessUrl.focus();

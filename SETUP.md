@@ -70,6 +70,7 @@ Se Supadata non trova sottotitoli per quel video, il fallback resta il transcrip
 Apri `curadoria.html`. Incolla la lista pulita di link, premi **Parsing** e la lista viene salvata in Firestore nel documento condiviso `shared/curation`.
 
 Nella pagina Tracker trovi ora la sezione **Curadoria** con i pulsanti `Play` e `X`. `Play` porta il video nel campo `YouTube link` di `New session`; `X` rimuove il link dalla lista condivisa.
+Quando premi `Play`, anche il video selezionato viene scritto in `shared/curation.selectedVideo`, così tutte le sessioni aperte vedono la stessa scelta.
 
 Se vuoi vedere la stessa lista da più browser/dispositivi, questo è il punto giusto: la curation non è più legata al singolo `uid`.
 
