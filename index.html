@@ -549,7 +549,6 @@ sessDate.value = todayISO();
 const curatedPrefill = new URLSearchParams(location.search).get("curated") || localStorage.getItem("pending_curated_url_v1");
 if (curatedPrefill) {
   sessUrl.value = curatedPrefill;
-  localStorage.removeItem("pending_curated_url_v1");
   lastAppliedCuratedSelection = curatedPrefill;
   refreshPreview();
 }
