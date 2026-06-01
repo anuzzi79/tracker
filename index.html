@@ -416,6 +416,11 @@ const fmtDate = d => {
   return x.toISOString().slice(0,10);
 };
 const todayISO = () => new Date().toISOString().slice(0,10);
+const KEY_LS = "openai_key_v1";
+const QUIZ_DAY_LS = "quiz_done_day_v1";
+const TRANSCRIPT_WORKER_URL_LS = "transcript_worker_url_v1";
+const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
+const SUPADATA_KEY_LS = "supadata_api_key_v1";
 
 let app, auth, db, uid=null;
 let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null, curation:null };
@@ -497,11 +502,30 @@ async function persistSharedCuratedSelection(url){
       selectedAt: serverTimestamp(),
       selectedBy: uid
     }, { merge: true });
+    const ok = await confirmSharedCuratedSelection(selected);
+    if (!ok) throw new Error("Selection write did not confirm in Firestore.");
     localStorage.setItem("pending_curated_url_v1", selected);
     lastAppliedCuratedSelection = selected;
   } catch (e) {
     console.warn("Could not persist selectedVideo", e);
+    throw e;
   }
+}
+
+async function confirmSharedCuratedSelection(url, timeoutMs = 6000){
+  const target = String(url || "").trim();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const snap = await getDoc(curationDoc());
+      const current = snap.exists() && snap.data()?.selectedVideo ? String(snap.data().selectedVideo).trim() : "";
+      if (current === target) return true;
+    } catch (e) {
+      // retry until deadline
+    }
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return false;
 }
 
 function scheduleSharedCuratedSelectionPersist(url){
@@ -834,11 +858,6 @@ function drawLine(svg, points){
 }
 
 // ---------- G. Quiz ----------
-const KEY_LS = "openai_key_v1";
-const QUIZ_DAY_LS = "quiz_done_day_v1";
-const TRANSCRIPT_WORKER_URL_LS = "transcript_worker_url_v1";
-const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
-const SUPADATA_KEY_LS = "supadata_api_key_v1";
 $("openaiKey").value = "";
 function keySet(){ return !!localStorage.getItem(KEY_LS); }
 function refreshKeyUI(){
@@ -1286,9 +1305,14 @@ function curatedThumb(item){
   return id ? ytThumb(id) : "";
 }
 
-function applyCuratedVideo(url){
+async function applyCuratedVideo(url){
   const u = String(url || "").trim();
   if (!u) return;
+  try {
+    await persistSharedCuratedSelection(u);
+  } catch (e) {
+    console.warn("Could not persist curated selection from Tracker", e);
+  }
   applySharedCuratedSelection(u);
   $("cardNewSession").scrollIntoView({ behavior: "smooth", block: "start" });
   sessUrl.focus();

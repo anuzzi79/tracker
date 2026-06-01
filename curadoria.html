@@ -255,6 +255,22 @@ async function saveCuration(items, rawText = ""){
   }
 }
 
+async function confirmSelectedVideo(url, timeoutMs = 6000){
+  const target = String(url || "").trim();
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const snap = await getDoc(curationDoc());
+      const current = snap.exists() && snap.data()?.selectedVideo ? String(snap.data().selectedVideo).trim() : "";
+      if (current === target) return true;
+    } catch (e) {
+      // retry until deadline
+    }
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return false;
+}
+
 async function applyToTracker(url){
   const clean = String(url || "").trim();
   if (!clean) return;
@@ -265,8 +281,14 @@ async function applyToTracker(url){
       selectedAt: serverTimestamp(),
       selectedBy: uid || null
     }, { merge: true });
+    const ok = await confirmSelectedVideo(clean);
+    if (!ok) {
+      throw new Error("Selection write did not confirm in Firestore.");
+    }
   } catch (e) {
     console.warn("Could not write selectedVideo to Firestore", e);
+    alert("Could not persist the selected video in Firestore. Please try again.");
+    return;
   }
   window.location.href = "./";
 }
