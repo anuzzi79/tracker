@@ -1280,6 +1280,13 @@ function curatedItems(){
   return items.filter(it => it && it.url);
 }
 
+function curatedThumb(item){
+  if (item && item.thumbnail) return item.thumbnail;
+  if (item && item.videoId) return ytThumb(item.videoId);
+  const id = ytId(item?.url || "");
+  return id ? ytThumb(id) : "";
+}
+
 function applyCuratedVideo(url){
   const u = String(url || "").trim();
   if (!u) return;
@@ -1297,6 +1304,8 @@ async function updateCuration(items, rawText = ""){
       url,
       videoId,
       title: item.title || videoId,
+      thumbnail: item.thumbnail || ytThumb(videoId),
+      channelTitle: item.channelTitle || "",
       addedAt: item.addedAt || todayISO()
     } : null;
   }).filter(Boolean);
@@ -1341,13 +1350,32 @@ function renderCuration(){
     row.style.alignItems = "center";
     row.style.marginTop = "8px";
     row.style.gap = "8px";
-    const chip = document.createElement("div");
-    chip.className = "tag";
-    chip.textContent = `${idx + 1}. ${item.title || item.videoId}`;
-    chip.style.flex = "1";
-    chip.style.overflow = "hidden";
-    chip.style.textOverflow = "ellipsis";
-    chip.style.whiteSpace = "nowrap";
+    const thumb = document.createElement("img");
+    thumb.className = "thumb";
+    thumb.alt = "";
+    thumb.loading = "lazy";
+    thumb.src = curatedThumb(item);
+    if (item.videoId) {
+      thumb.onerror = () => {
+        thumb.onerror = null;
+        thumb.src = ytThumb(item.videoId);
+      };
+    }
+    const body = document.createElement("div");
+    body.style.flex = "1";
+    body.style.minWidth = "0";
+    body.style.display = "flex";
+    body.style.flexDirection = "column";
+    body.style.gap = "4px";
+    const title = document.createElement("div");
+    title.className = "tag";
+    title.textContent = item.title || item.videoId;
+    title.style.overflow = "hidden";
+    title.style.textOverflow = "ellipsis";
+    title.style.whiteSpace = "nowrap";
+    const sub = document.createElement("div");
+    sub.className = "muted small";
+    sub.textContent = item.channelTitle || item.videoId || "";
     const play = document.createElement("button");
     play.textContent = "Play";
     play.onclick = () => applyCuratedVideo(item.url);
@@ -1362,7 +1390,10 @@ function renderCuration(){
         alert("Error: " + e.message);
       }
     };
-    row.appendChild(chip);
+    body.appendChild(title);
+    body.appendChild(sub);
+    row.appendChild(thumb);
+    row.appendChild(body);
     row.appendChild(play);
     row.appendChild(del);
     listBox.appendChild(row);
