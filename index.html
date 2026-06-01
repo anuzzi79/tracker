@@ -170,6 +170,22 @@
       </div>
     </details>
     <details>
+      <summary>Automatic transcripts (this browser only)</summary>
+      <div class="warning" style="margin-top:8px">
+        Optional reliable transcript service. Enter the Cloudflare Worker URL and your personal tracker token.
+        Both values stay only in this browser's localStorage.
+      </div>
+      <label for="transcriptWorkerUrl">Cloudflare Worker URL</label>
+      <input type="url" id="transcriptWorkerUrl" placeholder="https://listening-tracker-transcript.…workers.dev" autocomplete="off">
+      <label for="transcriptWorkerToken">Tracker token</label>
+      <input type="password" id="transcriptWorkerToken" placeholder="Personal token" autocomplete="off">
+      <div class="row" style="margin-top:8px">
+        <button id="saveTranscriptConfig">Save transcript settings</button>
+        <button id="forgetTranscriptConfig" class="ghost">Forget transcript settings</button>
+        <span id="transcriptConfigState" class="muted small"></span>
+      </div>
+    </details>
+    <details>
       <summary>Backup / Reset</summary>
       <div class="row" style="margin-top:8px">
         <button id="exportBtn">⬇️ Export data (JSON)</button>
@@ -727,6 +743,8 @@ function drawLine(svg, points){
 // ---------- G. Quiz ----------
 const KEY_LS = "openai_key_v1";
 const QUIZ_DAY_LS = "quiz_done_day_v1";
+const TRANSCRIPT_WORKER_URL_LS = "transcript_worker_url_v1";
+const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
 $("openaiKey").value = "";
 function keySet(){ return !!localStorage.getItem(KEY_LS); }
 function refreshKeyUI(){
@@ -745,6 +763,33 @@ $("forgetKey").addEventListener("click", () => {
 });
 refreshKeyUI();
 
+function refreshTranscriptConfigUI(){
+  const configured = localStorage.getItem(TRANSCRIPT_WORKER_URL_LS)
+    && localStorage.getItem(TRANSCRIPT_WORKER_TOKEN_LS);
+  $("transcriptConfigState").textContent = configured ? "✓ transcript service configured" : "Not configured";
+}
+$("saveTranscriptConfig").addEventListener("click", () => {
+  const url = $("transcriptWorkerUrl").value.trim().replace(/\/+$/, "");
+  const token = $("transcriptWorkerToken").value.trim();
+  if (!/^https:\/\/.+\.workers\.dev$/i.test(url) || !token) {
+    $("transcriptConfigState").textContent = "Enter a valid workers.dev URL and token.";
+    return;
+  }
+  localStorage.setItem(TRANSCRIPT_WORKER_URL_LS, url);
+  localStorage.setItem(TRANSCRIPT_WORKER_TOKEN_LS, token);
+  $("transcriptWorkerToken").value = "";
+  refreshTranscriptConfigUI();
+});
+$("forgetTranscriptConfig").addEventListener("click", () => {
+  localStorage.removeItem(TRANSCRIPT_WORKER_URL_LS);
+  localStorage.removeItem(TRANSCRIPT_WORKER_TOKEN_LS);
+  $("transcriptWorkerUrl").value = "";
+  $("transcriptWorkerToken").value = "";
+  refreshTranscriptConfigUI();
+});
+$("transcriptWorkerUrl").value = localStorage.getItem(TRANSCRIPT_WORKER_URL_LS) || "";
+refreshTranscriptConfigUI();
+
 function refreshQuizGate(){
   const id = ytId(sessUrl.value);
   const ready = id && ascoltoDone;
@@ -761,6 +806,27 @@ function refreshQuizGate(){
 async function fetchTranscriptAuto(videoId){
   const log = (...a) => console.log("[transcript]", ...a);
   const setStatus = msg => { $("quizStatus").textContent = msg; };
+  const workerUrl = localStorage.getItem(TRANSCRIPT_WORKER_URL_LS);
+  const workerToken = localStorage.getItem(TRANSCRIPT_WORKER_TOKEN_LS);
+
+  if (workerUrl && workerToken) {
+    try {
+      setStatus("Fetching transcript from configured service…");
+      const response = await fetch(`${workerUrl}/?videoId=${encodeURIComponent(videoId)}`, {
+        headers: { "x-tracker-token": workerToken },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+      if (typeof payload.transcript !== "string" || payload.transcript.length < 80) {
+        throw new Error("Configured service returned no usable transcript.");
+      }
+      log(`Configured service transcript ready: ${payload.transcript.length} chars`);
+      return payload.transcript;
+    } catch(e) {
+      log("Configured transcript service failed:", e.message);
+      setStatus("Configured transcript service failed. Trying public fallbacks…");
+    }
+  }
 
   // Multiple public CORS proxies. Each is unstable on its own — we cascade.
   const proxies = [

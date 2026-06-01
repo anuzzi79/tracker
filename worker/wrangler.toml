@@ -1,0 +1,7 @@
+name = "listening-tracker-transcript"
+main = "src/index.js"
+compatibility_date = "2026-05-31"
+
+# Configure secrets after login:
+# npx wrangler secret put SUPADATA_API_KEY
+# npx wrangler secret put TRACKER_TOKEN
