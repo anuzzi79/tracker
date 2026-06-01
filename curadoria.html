@@ -64,21 +64,8 @@
         <a class="btn ghost" href="./">Open Tracker</a>
       </div>
     </div>
-    <div class="row" style="margin-top:10px">
-      <div>
-        <details open>
-          <summary>OpenAI key (shared with Tracker)</summary>
-          <div class="warning" style="margin-top:8px">The key stays only in this browser's localStorage.</div>
-          <label for="openaiKey">OpenAI API key</label>
-          <input type="password" id="openaiKey" placeholder="sk-…" autocomplete="off">
-          <div class="row tight" style="margin-top:8px">
-            <button id="saveKey">Save key</button>
-            <button id="forgetKey" class="ghost">Forget key</button>
-            <span id="keyState" class="muted small" style="align-self:center"></span>
-          </div>
-        </details>
-      </div>
-    </div>
+    <div class="warning" style="margin-top:10px">This page uses the OpenAI key saved in Tracker homepage Settings. No second key prompt here.</div>
+    <p class="muted small" id="keyState" style="margin:8px 0 0">Checking homepage key…</p>
     <div class="hr"></div>
     <label for="rawInput">Raw list from chat</label>
     <textarea id="rawInput" placeholder="Paste the clean list of YouTube links here, one per line."></textarea>
@@ -123,21 +110,10 @@ let curation = null;
 
 function keySet(){ return !!localStorage.getItem(KEY_LS); }
 function refreshKeyUI(){
-  $("keyState").textContent = keySet() ? "✓ key present in localStorage" : "No key saved";
+  $("keyState").textContent = keySet()
+    ? "✓ OpenAI key already saved in this browser via Tracker homepage Settings."
+    : "No OpenAI key saved in this browser. Open Tracker homepage → Settings → OpenAI key first.";
 }
-$("openaiKey").value = "";
-$("saveKey").addEventListener("click", () => {
-  const v = $("openaiKey").value.trim();
-  if (!v) return;
-  localStorage.setItem(KEY_LS, v);
-  $("openaiKey").value = "";
-  refreshKeyUI();
-});
-$("forgetKey").addEventListener("click", () => {
-  localStorage.removeItem(KEY_LS);
-  $("openaiKey").value = "";
-  refreshKeyUI();
-});
 refreshKeyUI();
 
 function curationDoc(){ return doc(db, "shared", "curation"); }
@@ -215,14 +191,21 @@ function parseFallback(rawText){
 }
 
 async function saveCuration(items, rawText = ""){
-  await setDoc(curationDoc(), {
-    rawText,
-    items,
-    selectedVideo: curation?.selectedVideo || null,
-    selectedAt: curation?.selectedAt || null,
-    selectedBy: curation?.selectedBy || null,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  try {
+    await setDoc(curationDoc(), {
+      rawText,
+      items,
+      selectedVideo: curation?.selectedVideo || null,
+      selectedAt: curation?.selectedAt || null,
+      selectedBy: curation?.selectedBy || null,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (e) {
+    if (String(e?.message || "").toLowerCase().includes("permission")) {
+      throw new Error("Firestore rules block /shared/curation. Publish the shared curation rule in Firebase.");
+    }
+    throw e;
+  }
 }
 
 async function applyToTracker(url){

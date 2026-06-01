@@ -1247,11 +1247,18 @@ async function updateCuration(items, rawText = ""){
       addedAt: item.addedAt || todayISO()
     } : null;
   }).filter(Boolean);
-  await setDoc(curationDoc(), {
-    rawText,
-    items: clean,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
+  try {
+    await setDoc(curationDoc(), {
+      rawText,
+      items: clean,
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+  } catch (e) {
+    if (String(e?.message || "").toLowerCase().includes("permission")) {
+      throw new Error("Firestore rules block /shared/curation. Publish the shared curation rule in Firebase.");
+    }
+    throw e;
+  }
 }
 
 function renderCuration(){

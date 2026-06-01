@@ -32,7 +32,7 @@ Tutto vive in `index.html`. Due cose da configurare a mano: **Firebase** e **Ope
 
 1. https://platform.openai.com/api-keys → "Create new secret key" → copia.
 2. **Settings → Limits**: imposta un **monthly spending limit** basso (es. 5 USD).
-3. Apri l'app, **Impostazioni → OpenAI key**, incolla, "Salva chiave". La chiave resta solo nel localStorage di quel browser.
+3. Apri la homepage dell'app, **Settings → OpenAI key**, incolla, "Save key". La chiave resta solo nel localStorage di quel browser e vale anche per `curadoria.html` perché è sulla stessa origine.
 
 Il modello usato di default è `gpt-4o-mini` (puoi cambiarlo nella costante `OPENAI_MODEL` in alto nello script).
 
@@ -67,7 +67,7 @@ Se Supadata non trova sottotitoli per quel video, il fallback resta il transcrip
 
 ## 6) Curadoria
 
-Apri `curadoria.html`. Incolla la lista pulita di link, premi **Parsing** e la lista viene salvata in Firestore nel documento condiviso `shared/curation`.
+Apri `curadoria.html`. Non serve reinserire la chiave OpenAI: viene letta dalla homepage stessa origine. Incolla la lista pulita di link, premi **Parsing** e la lista viene salvata in Firestore nel documento condiviso `shared/curation`.
 
 Nella pagina Tracker trovi ora la sezione **Curadoria** con i pulsanti `Play` e `X`. `Play` porta il video nel campo `YouTube link` di `New session`; `X` rimuove il link dalla lista condivisa.
 Quando premi `Play`, anche il video selezionato viene scritto in `shared/curation.selectedVideo`, così tutte le sessioni aperte vedono la stessa scelta.
