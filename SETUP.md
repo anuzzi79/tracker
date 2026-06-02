@@ -83,7 +83,19 @@ service cloud.firestore {
     match /users/{uid}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
+    match /sharedSessions/{sessionId} {
+      allow read, write: if request.auth != null;
+    }
+    match /sharedMeasures/{measureId} {
+      allow read, write: if request.auth != null;
+    }
+    match /sharedNotes/{noteId} {
+      allow read, write: if request.auth != null;
+    }
     match /shared/curation {
+      allow read, write: if request.auth != null;
+    }
+    match /shared/champion {
       allow read, write: if request.auth != null;
     }
     match /sharedQuizAttempts/{attemptId} {
@@ -97,3 +109,13 @@ service cloud.firestore {
 
 I quiz attempts ora vengono salvati anche in `sharedQuizAttempts/{attemptId}`. Questo rende la cronologia visibile su tutti i browser e dispositivi collegati.
 Gli eventuali quiz vecchi salvati solo sotto `users/{uid}/quizAttempts` vengono migrati automaticamente nel ramo condiviso al primo caricamento del browser che li vede; se vuoi forzare la copia manuale, basta riaprire la pagina con quell'UID ancora attivo.
+
+## 8) Sessioni, costanza e note condivise
+
+Anche `sessions`, `measures`, `notes` e `champion` vivono adesso nel backend condiviso:
+- `sharedSessions/{sessionId}`
+- `sharedMeasures/{measureId}`
+- `sharedNotes/{noteId}`
+- `shared/champion`
+
+Queste collection alimentano la card `Consistency (this week)`, la card `Session history`, la card `Comprehension`, la card `Notes` e il `Champion video` in tutte le sessioni aperte.

@@ -423,10 +423,30 @@ const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
 const SUPADATA_KEY_LS = "supadata_api_key_v1";
 
 let app, auth, db, uid=null;
-let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], userQuizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
+let cache = {
+  sessions:[],
+  measures:[],
+  notes:[],
+  quizAttempts:[],
+  userSessions:[],
+  userMeasures:[],
+  userNotes:[],
+  userQuizAttempts:[],
+  sharedSessions:[],
+  sharedMeasures:[],
+  sharedNotes:[],
+  sharedQuizAttempts:[],
+  sharedChampion:null,
+  champion:null,
+  curation:null
+};
 let curationUnsub = null;
 let lastAppliedCuratedSelection = null;
 let curatedSelectionTimer = null;
+let sharedSessionsUnsub = null;
+let sharedMeasuresUnsub = null;
+let sharedNotesUnsub = null;
+let sharedChampionUnsub = null;
 let sharedQuizUnsub = null;
 
 const authMsg = $("authStatus");
@@ -449,10 +469,35 @@ onAuthStateChanged(auth, async user => {
     if (selected) applySharedCuratedSelection(selected);
     renderCuration();
   }, err => console.warn("curation snapshot", err));
+  if (sharedSessionsUnsub) { sharedSessionsUnsub(); sharedSessionsUnsub = null; }
+  sharedSessionsUnsub = onSnapshot(query(sharedSessionsCol(), orderBy("createdAt","desc")), snap => {
+    cache.sharedSessions = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    mergeCardCaches();
+    renderCostanza();
+    renderHist();
+  }, err => console.warn("shared sessions snapshot", err));
+  if (sharedMeasuresUnsub) { sharedMeasuresUnsub(); sharedMeasuresUnsub = null; }
+  sharedMeasuresUnsub = onSnapshot(query(sharedMeasuresCol(), orderBy("createdAt","desc")), snap => {
+    cache.sharedMeasures = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    mergeCardCaches();
+    renderMeasures();
+  }, err => console.warn("shared measures snapshot", err));
+  if (sharedNotesUnsub) { sharedNotesUnsub(); sharedNotesUnsub = null; }
+  sharedNotesUnsub = onSnapshot(query(sharedNotesCol(), orderBy("createdAt","desc")), snap => {
+    cache.sharedNotes = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    mergeCardCaches();
+    renderNotes();
+  }, err => console.warn("shared notes snapshot", err));
+  if (sharedChampionUnsub) { sharedChampionUnsub(); sharedChampionUnsub = null; }
+  sharedChampionUnsub = onSnapshot(sharedChampionDoc(), snap => {
+    cache.sharedChampion = snap.exists() ? snap.data() : null;
+    cache.champion = cache.sharedChampion || cache.champion;
+    renderChampion();
+  }, err => console.warn("shared champion snapshot", err));
   if (sharedQuizUnsub) { sharedQuizUnsub(); sharedQuizUnsub = null; }
   sharedQuizUnsub = onSnapshot(sharedQuizAttemptsCol(), snap => {
     cache.sharedQuizAttempts = snap.docs.map(d => ({id:d.id, ...d.data()}));
-    mergeQuizAttemptsCache();
+    mergeCardCaches();
     renderQuizTrend();
   }, err => console.warn("shared quiz snapshot", err));
   await loadAll();
@@ -467,40 +512,115 @@ onAuthStateChanged(auth, async user => {
 const userCol = (sub) => collection(db, "users", uid, sub);
 const champDoc = () => doc(db, "users", uid, "config", "champion");
 const curationDoc = () => doc(db, "shared", "curation");
+const sharedSessionsCol = () => collection(db, "sharedSessions");
+const sharedMeasuresCol = () => collection(db, "sharedMeasures");
+const sharedNotesCol = () => collection(db, "sharedNotes");
+const sharedChampionDoc = () => doc(db, "shared", "champion");
 const sharedQuizAttemptsCol = () => collection(db, "sharedQuizAttempts");
 
 // ---------- Loaders ----------
 async function loadAll() {
-  cache = { sessions:[], measures:[], notes:[], quizAttempts:[], userQuizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
+  cache = {
+    sessions:[],
+    measures:[],
+    notes:[],
+    quizAttempts:[],
+    userSessions:[],
+    userMeasures:[],
+    userNotes:[],
+    userQuizAttempts:[],
+    sharedSessions:[],
+    sharedMeasures:[],
+    sharedNotes:[],
+    sharedQuizAttempts:[],
+    sharedChampion:null,
+    champion:null,
+    curation:null
+  };
   try {
     const subs = ["sessions","measures","notes","quizAttempts"];
     for (const s of subs) {
       const snap = await getDocs(query(userCol(s), orderBy("createdAt","desc")));
-      cache[s] = snap.docs.map(d => ({id:d.id, ...d.data()}));
+      cache[`user${s[0].toUpperCase()}${s.slice(1)}`] = snap.docs.map(d => ({id:d.id, ...d.data()}));
     }
-    cache.userQuizAttempts = [...(cache.quizAttempts || [])];
-    const sharedSnap = await getDocs(query(sharedQuizAttemptsCol(), orderBy("createdAt","desc")));
-    cache.sharedQuizAttempts = sharedSnap.docs.map(d => ({id:d.id, ...d.data()}));
-    const champSnap = await getDoc(champDoc());
-    if (champSnap.exists()) cache.champion = champSnap.data();
+    const sharedMap = [
+      ["sharedSessions", sharedSessionsCol()],
+      ["sharedMeasures", sharedMeasuresCol()],
+      ["sharedNotes", sharedNotesCol()],
+      ["sharedQuizAttempts", sharedQuizAttemptsCol()],
+    ];
+    for (const [key, ref] of sharedMap) {
+      const snap = await getDocs(query(ref, orderBy("createdAt","desc")));
+      cache[key] = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    }
+    const champSnap = await getDoc(sharedChampionDoc());
+    if (champSnap.exists()) {
+      cache.sharedChampion = champSnap.data();
+      cache.champion = cache.sharedChampion;
+    } else {
+      const legacyChampSnap = await getDoc(champDoc());
+      if (legacyChampSnap.exists()) cache.champion = legacyChampSnap.data();
+    }
     const curationSnap = await getDoc(curationDoc());
     if (curationSnap.exists()) cache.curation = curationSnap.data();
-    mergeQuizAttemptsCache();
+    mergeCardCaches();
+    await syncLegacyCardDataToShared();
     await syncLegacyQuizAttemptsToShared();
   } catch (e) {
     console.warn("loadAll", e);
   }
 }
 
-function mergeQuizAttemptsCache(){
+function mergeCardCaches(){
+  mergeTwoSources("sessions", "sharedSessions", "userSessions");
+  mergeTwoSources("measures", "sharedMeasures", "userMeasures");
+  mergeTwoSources("notes", "sharedNotes", "userNotes");
+  mergeTwoSources("quizAttempts", "sharedQuizAttempts", "userQuizAttempts");
+}
+
+function mergeTwoSources(targetKey, sharedKey, userKey){
   const byId = new Map();
-  for (const src of [cache.quizAttempts || [], cache.sharedQuizAttempts || []]) {
+  for (const src of [cache[userKey] || [], cache[sharedKey] || []]) {
     for (const item of src) {
       if (!item || !item.id) continue;
       byId.set(item.id, item);
     }
   }
-  cache.quizAttempts = [...byId.values()];
+  cache[targetKey] = [...byId.values()];
+}
+
+async function syncLegacyCardDataToShared(){
+  await syncLegacyCollectionToShared("sessions", sharedSessionsCol, true);
+  await syncLegacyCollectionToShared("measures", sharedMeasuresCol, true);
+  await syncLegacyCollectionToShared("notes", sharedNotesCol, true);
+  if (cache.champion && cache.champion.videoId && !cache.sharedChampion) {
+    try {
+      await setDoc(sharedChampionDoc(), cache.champion, { merge: true });
+      try { await deleteDoc(champDoc()); } catch(e){}
+    } catch (e) {
+      console.warn("Could not migrate champion", e);
+    }
+  }
+}
+
+async function syncLegacyCollectionToShared(key, sharedColFn, deleteLegacy=false){
+  const legacy = cache[`user${key[0].toUpperCase()}${key.slice(1)}`] || [];
+  if (!legacy.length) return;
+  const sharedKey = `shared${key[0].toUpperCase()}${key.slice(1)}`;
+  const sharedIds = new Set((cache[sharedKey] || []).map(x => x && x.id).filter(Boolean));
+  const pending = legacy.filter(item => item && item.id && !sharedIds.has(item.id));
+  if (!pending.length) return;
+  for (const item of pending) {
+    try {
+      const data = { ...item, migratedFromUid: uid, migratedAt: serverTimestamp() };
+      await setDoc(doc(sharedColFn(), item.id), data, { merge: true });
+      if (deleteLegacy) {
+        try { await deleteDoc(doc(userCol(key), item.id)); } catch(e){}
+      }
+    } catch (e) {
+      console.warn(`Could not migrate legacy ${key}`, item.id, e);
+    }
+  }
 }
 
 async function syncLegacyQuizAttemptsToShared(){
@@ -516,6 +636,7 @@ async function syncLegacyQuizAttemptsToShared(){
         migratedFromUid: uid,
         migratedAt: serverTimestamp(),
       }, { merge: true });
+      try { await deleteDoc(doc(userCol("quizAttempts"), item.id)); } catch(e) {}
     } catch (e) {
       console.warn("Could not migrate legacy quiz attempt", item.id, e);
     }
@@ -687,8 +808,10 @@ btnSave.addEventListener("click", async () => {
     createdAt: serverTimestamp()
   };
   try {
-    const ref = await addDoc(userCol("sessions"), data);
-    cache.sessions.unshift({ id: ref.id, ...data, createdAt: new Date() });
+    const ref = doc(sharedSessionsCol());
+    await setDoc(ref, data);
+    cache.sharedSessions.unshift({ id: ref.id, ...data, createdAt: new Date() });
+    mergeCardCaches();
     saveStatus.innerHTML = '<span class="ok-banner">Saved!</span>';
     // show last
     lastThumb.src = ytThumb(id);
@@ -754,7 +877,13 @@ function renderHist(){
     delBtn.style.padding="4px 8px"; delBtn.style.minHeight="auto";
     delBtn.onclick = async () => {
       if (!confirm("Delete this session?")) return;
-      try { await deleteDoc(doc(db,"users",uid,"sessions",s.id)); cache.sessions = cache.sessions.filter(x=>x.id!==s.id); renderHist(); renderCostanza(); } catch(e){ alert("Error: "+e.message); }
+      try {
+        await deleteDoc(doc(sharedSessionsCol(), s.id));
+        try { await deleteDoc(doc(db,"users",uid,"sessions",s.id)); } catch(e) {}
+        cache.sharedSessions = cache.sharedSessions.filter(x=>x.id!==s.id);
+        mergeCardCaches();
+        renderHist(); renderCostanza();
+      } catch(e){ alert("Error: "+e.message); }
     };
     tdDel.appendChild(delBtn);
     tr.appendChild(tdDel);
@@ -771,8 +900,10 @@ $("btnSaveMeasure").addEventListener("click", async () => {
   if (isNaN(pct)) { $("measureStatus").innerHTML='<span class="err-banner">Enter a %.</span>'; return; }
   const data = { date, percent: pct, createdAt: serverTimestamp() };
   try {
-    const ref = await addDoc(userCol("measures"), data);
-    cache.measures.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    const ref = doc(sharedMeasuresCol());
+    await setDoc(ref, data);
+    cache.sharedMeasures.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    mergeCardCaches();
     $("measureStatus").innerHTML='<span class="ok-banner">Saved.</span>';
     $("mPct").value="";
     renderMeasures();
@@ -807,8 +938,10 @@ $("btnSaveNote").addEventListener("click", async () => {
   const lastPct = sortedM.length ? sortedM[0].percent : null;
   const data = { date: todayISO(), text, percentAtTime: lastPct, createdAt: serverTimestamp() };
   try {
-    const ref = await addDoc(userCol("notes"), data);
-    cache.notes.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    const ref = doc(sharedNotesCol());
+    await setDoc(ref, data);
+    cache.sharedNotes.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    mergeCardCaches();
     $("noteText").value="";
     $("noteStatus").innerHTML='<span class="ok-banner">Note saved.</span>';
     renderNotes();
@@ -840,7 +973,7 @@ $("btnSaveChamp").addEventListener("click", async () => {
   }
   const data = { url, videoId:id, range };
   try {
-    await setDoc(champDoc(), data);
+    await setDoc(sharedChampionDoc(), data);
     cache.champion = data;
     $("champStatus").innerHTML='<span class="ok-banner">Saved.</span>';
     renderChampion();
@@ -1478,7 +1611,15 @@ function renderCuration(){
 
 // ---------- Backup ----------
 $("exportBtn").addEventListener("click", () => {
-  const blob = new Blob([JSON.stringify({ exportedAt:new Date().toISOString(), ...cache }, null, 2)], {type:"application/json"});
+  const blob = new Blob([JSON.stringify({
+    exportedAt:new Date().toISOString(),
+    sessions: cache.sessions || [],
+    measures: cache.measures || [],
+    notes: cache.notes || [],
+    quizAttempts: cache.quizAttempts || [],
+    champion: cache.champion || null,
+    curation: cache.curation || null
+  }, null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = `tracker-backup-${todayISO()}.json`; a.click();
 });
@@ -1492,11 +1633,21 @@ $("importFile").addEventListener("change", async e => {
       if (!Array.isArray(obj[s])) continue;
       for (const item of obj[s]) {
         const { id, createdAt, ...rest } = item;
-        try { await addDoc(userCol(s), { ...rest, createdAt: serverTimestamp() }); added++; } catch(err){ console.warn(err); }
+        try {
+          const colMap = {
+            sessions: sharedSessionsCol,
+            measures: sharedMeasuresCol,
+            notes: sharedNotesCol,
+            quizAttempts: sharedQuizAttemptsCol
+          };
+          const ref = doc(colMap[s]());
+          await setDoc(ref, { ...rest, createdAt: serverTimestamp() });
+          added++;
+        } catch(err){ console.warn(err); }
       }
     }
     if (obj.champion && obj.champion.videoId) {
-      try { await setDoc(champDoc(), obj.champion); } catch(err){}
+      try { await setDoc(sharedChampionDoc(), obj.champion); } catch(err){}
     }
     alert(`Imported ${added} records. Reloading…`);
     await loadAll(); renderAll();
