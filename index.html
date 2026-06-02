@@ -423,10 +423,11 @@ const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
 const SUPADATA_KEY_LS = "supadata_api_key_v1";
 
 let app, auth, db, uid=null;
-let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null, curation:null };
+let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
 let curationUnsub = null;
 let lastAppliedCuratedSelection = null;
 let curatedSelectionTimer = null;
+let sharedQuizUnsub = null;
 
 const authMsg = $("authStatus");
 
@@ -448,6 +449,12 @@ onAuthStateChanged(auth, async user => {
     if (selected) applySharedCuratedSelection(selected);
     renderCuration();
   }, err => console.warn("curation snapshot", err));
+  if (sharedQuizUnsub) { sharedQuizUnsub(); sharedQuizUnsub = null; }
+  sharedQuizUnsub = onSnapshot(sharedQuizAttemptsCol(), snap => {
+    cache.sharedQuizAttempts = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    mergeQuizAttemptsCache();
+    renderQuizTrend();
+  }, err => console.warn("shared quiz snapshot", err));
   await loadAll();
   if (cache.curation?.selectedVideo) applySharedCuratedSelection(cache.curation.selectedVideo);
   renderAll();
@@ -460,23 +467,38 @@ onAuthStateChanged(auth, async user => {
 const userCol = (sub) => collection(db, "users", uid, sub);
 const champDoc = () => doc(db, "users", uid, "config", "champion");
 const curationDoc = () => doc(db, "shared", "curation");
+const sharedQuizAttemptsCol = () => collection(db, "sharedQuizAttempts");
 
 // ---------- Loaders ----------
 async function loadAll() {
-  cache = { sessions:[], measures:[], notes:[], quizAttempts:[], champion:null };
+  cache = { sessions:[], measures:[], notes:[], quizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
   try {
     const subs = ["sessions","measures","notes","quizAttempts"];
     for (const s of subs) {
       const snap = await getDocs(query(userCol(s), orderBy("createdAt","desc")));
       cache[s] = snap.docs.map(d => ({id:d.id, ...d.data()}));
     }
+    const sharedSnap = await getDocs(query(sharedQuizAttemptsCol(), orderBy("createdAt","desc")));
+    cache.sharedQuizAttempts = sharedSnap.docs.map(d => ({id:d.id, ...d.data()}));
     const champSnap = await getDoc(champDoc());
     if (champSnap.exists()) cache.champion = champSnap.data();
     const curationSnap = await getDoc(curationDoc());
     if (curationSnap.exists()) cache.curation = curationSnap.data();
+    mergeQuizAttemptsCache();
   } catch (e) {
     console.warn("loadAll", e);
   }
+}
+
+function mergeQuizAttemptsCache(){
+  const byId = new Map();
+  for (const src of [cache.quizAttempts || [], cache.sharedQuizAttempts || []]) {
+    for (const item of src) {
+      if (!item || !item.id) continue;
+      byId.set(item.id, item);
+    }
+  }
+  cache.quizAttempts = [...byId.values()];
 }
 
 function applySharedCuratedSelection(url){
@@ -1256,6 +1278,11 @@ async function submitQuiz(){
   try {
     const ref = await addDoc(userCol("quizAttempts"), data);
     cache.quizAttempts.unshift({ id:ref.id, ...data, createdAt:new Date() });
+    try {
+      await setDoc(doc(sharedQuizAttemptsCol(), ref.id), data, { merge: true });
+    } catch(e) {
+      console.warn("Could not write shared quiz attempt", e);
+    }
     localStorage.setItem(QUIZ_DAY_LS, today);
     $("quizResult").classList.remove("hidden");
     $("quizResult").innerHTML = `<div class="ok-banner"><strong>Score: ${score} / ${data.total}</strong> · saved.</div>`;
@@ -1285,7 +1312,12 @@ $("btnGenFromManual").addEventListener("click", () => {
 
 // ---------- H. Quiz trend ----------
 function renderQuizTrend(){
-  const list = [...cache.quizAttempts].sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  const list = [...cache.quizAttempts].sort((a,b)=>{
+    const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+    const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+    if (ta !== tb) return ta - tb;
+    return String(a.date || "").localeCompare(String(b.date || ""));
+  });
   drawLine($("quizChart"), list.map(x=>({label:x.date, value: Math.round((x.score/(x.total||20))*100)})));
   if (!list.length) { $("quizHint").textContent="No quizzes yet."; return; }
   const last = list[list.length-1];

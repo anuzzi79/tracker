@@ -86,6 +86,14 @@ service cloud.firestore {
     match /shared/curation {
       allow read, write: if request.auth != null;
     }
+    match /sharedQuizAttempts/{attemptId} {
+      allow read, write: if request.auth != null;
+    }
   }
 }
 ```
+
+## 7) Quiz trend condiviso
+
+I quiz attempts ora vengono salvati anche in `sharedQuizAttempts/{attemptId}`. Questo rende la cronologia visibile su tutti i browser e dispositivi collegati.
+Gli eventuali quiz vecchi salvati solo sotto `users/{uid}/quizAttempts` restano lì: non vengono persi, ma non si vedono più su altri browser finché non vengono copiati nel ramo condiviso.
