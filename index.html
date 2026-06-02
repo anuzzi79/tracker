@@ -423,7 +423,7 @@ const TRANSCRIPT_WORKER_TOKEN_LS = "transcript_worker_token_v1";
 const SUPADATA_KEY_LS = "supadata_api_key_v1";
 
 let app, auth, db, uid=null;
-let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
+let cache = { sessions:[], measures:[], notes:[], quizAttempts:[], userQuizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
 let curationUnsub = null;
 let lastAppliedCuratedSelection = null;
 let curatedSelectionTimer = null;
@@ -471,13 +471,14 @@ const sharedQuizAttemptsCol = () => collection(db, "sharedQuizAttempts");
 
 // ---------- Loaders ----------
 async function loadAll() {
-  cache = { sessions:[], measures:[], notes:[], quizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
+  cache = { sessions:[], measures:[], notes:[], quizAttempts:[], userQuizAttempts:[], sharedQuizAttempts:[], champion:null, curation:null };
   try {
     const subs = ["sessions","measures","notes","quizAttempts"];
     for (const s of subs) {
       const snap = await getDocs(query(userCol(s), orderBy("createdAt","desc")));
       cache[s] = snap.docs.map(d => ({id:d.id, ...d.data()}));
     }
+    cache.userQuizAttempts = [...(cache.quizAttempts || [])];
     const sharedSnap = await getDocs(query(sharedQuizAttemptsCol(), orderBy("createdAt","desc")));
     cache.sharedQuizAttempts = sharedSnap.docs.map(d => ({id:d.id, ...d.data()}));
     const champSnap = await getDoc(champDoc());
@@ -485,6 +486,7 @@ async function loadAll() {
     const curationSnap = await getDoc(curationDoc());
     if (curationSnap.exists()) cache.curation = curationSnap.data();
     mergeQuizAttemptsCache();
+    await syncLegacyQuizAttemptsToShared();
   } catch (e) {
     console.warn("loadAll", e);
   }
@@ -499,6 +501,25 @@ function mergeQuizAttemptsCache(){
     }
   }
   cache.quizAttempts = [...byId.values()];
+}
+
+async function syncLegacyQuizAttemptsToShared(){
+  const legacy = cache.userQuizAttempts || [];
+  if (!legacy.length) return;
+  const sharedIds = new Set((cache.sharedQuizAttempts || []).map(x => x && x.id).filter(Boolean));
+  const pending = legacy.filter(item => item && item.id && !sharedIds.has(item.id));
+  if (!pending.length) return;
+  for (const item of pending) {
+    try {
+      await setDoc(doc(sharedQuizAttemptsCol(), item.id), {
+        ...item,
+        migratedFromUid: uid,
+        migratedAt: serverTimestamp(),
+      }, { merge: true });
+    } catch (e) {
+      console.warn("Could not migrate legacy quiz attempt", item.id, e);
+    }
+  }
 }
 
 function applySharedCuratedSelection(url){
