@@ -237,14 +237,32 @@ function parseFallback(rawText){
   return found;
 }
 
+function mergeUniqueItems(existing, incoming){
+  const out = [];
+  const seen = new Set();
+  for (const item of [...(Array.isArray(existing) ? existing : []), ...(Array.isArray(incoming) ? incoming : [])]) {
+    const url = String(item?.url || "").trim();
+    const id = ytId(url);
+    const key = id || url.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 async function saveCuration(items, rawText = ""){
   try {
+    const currentSnap = await getDoc(curationDoc());
+    const current = currentSnap.exists() ? currentSnap.data() : {};
+    const mergedItems = mergeUniqueItems(current.items, items);
+    const mergedRawText = [current.rawText, rawText].filter(Boolean).join("\n\n").trim();
     await setDoc(curationDoc(), {
-      rawText,
-      items,
-      selectedVideo: curation?.selectedVideo || null,
-      selectedAt: curation?.selectedAt || null,
-      selectedBy: curation?.selectedBy || null,
+      rawText: mergedRawText,
+      items: mergedItems,
+      selectedVideo: current?.selectedVideo || curation?.selectedVideo || null,
+      selectedAt: current?.selectedAt || curation?.selectedAt || null,
+      selectedBy: current?.selectedBy || curation?.selectedBy || null,
       updatedAt: serverTimestamp()
     }, { merge: true });
   } catch (e) {
