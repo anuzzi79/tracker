@@ -1018,16 +1018,31 @@ function drawLine(svg, points){
   const W=600,H=160,pad=22;
   const max = 100;
   const stepX = points.length>1 ? (W-pad*2)/(points.length-1) : 0;
+  const tickVals = [0, 25, 50, 75, 100];
   svg.insertAdjacentHTML("beforeend",
     `<line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="#1f1a14" stroke-width="1.2"/>
      <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${H-pad}" stroke="#1f1a14" stroke-width="1.2"/>`);
+  tickVals.forEach(v => {
+    const y = H - pad - (v / max) * (H - pad * 2);
+    svg.insertAdjacentHTML("beforeend",
+      `<line x1="${pad}" y1="${y}" x2="${W-pad}" y2="${y}" stroke="#1f1a14" stroke-opacity="0.12" stroke-width="1"/>
+       <text x="${pad - 6}" y="${y + 4}" text-anchor="end" font-size="10" font-family="JetBrains Mono" fill="#1f1a14">${v}</text>`);
+  });
   let path = "";
   points.forEach((p,i)=>{
     const x = pad + i*stepX;
     const y = H-pad - (p.value/max)*(H-pad*2);
     path += (i?" L":"M")+x+" "+y;
+    const tt = [
+      p.date ? `Date: ${p.date}` : null,
+      p.score != null && p.total != null ? `Score: ${p.score}/${p.total}` : null,
+      p.pct != null ? `Pct: ${p.pct}%` : null,
+      p.title ? `Title: ${p.title}` : null
+    ].filter(Boolean).join(" | ");
     svg.insertAdjacentHTML("beforeend",
-      `<circle cx="${x}" cy="${y}" r="3.5" fill="#b5361f" stroke="#1f1a14" stroke-width="1.2"/>`);
+      `<circle cx="${x}" cy="${y}" r="4.3" fill="#b5361f" stroke="#1f1a14" stroke-width="1.2">
+         <title>${escapeHtml(tt || `Value: ${p.value}`)}</title>
+       </circle>`);
   });
   svg.insertAdjacentHTML("afterbegin",
     `<path d="${path}" fill="none" stroke="#1f1a14" stroke-width="1.8"/>`);
@@ -1367,7 +1382,14 @@ TRANSCRIPT:
       qs = parse(raw);
     }
     if (!qs) { $("quizStatus").innerHTML='<span class="err-banner">Parsing failed twice.</span>'; return; }
-    currentQuiz = { videoId: ytId(sessUrl.value), url: sessUrl.value.trim(), questions: qs, answers: Array(qs.length).fill(null) };
+    const videoId = ytId(sessUrl.value);
+    currentQuiz = {
+      videoId,
+      url: sessUrl.value.trim(),
+      title: resolveQuizAttemptTitle({ videoId, url: sessUrl.value.trim() }),
+      questions: qs,
+      answers: Array(qs.length).fill(null)
+    };
     renderQuiz();
     $("quizStatus").textContent = `Quiz ready: ${qs.length} questions.`;
   } catch(e) {
@@ -1425,6 +1447,7 @@ async function submitQuiz(){
     date: today,
     url: currentQuiz.url,
     videoId: currentQuiz.videoId,
+    title: currentQuiz.title || resolveQuizAttemptTitle(currentQuiz),
     score, total: currentQuiz.questions.length,
     perQuestion: per,
     createdAt: serverTimestamp()
@@ -1472,11 +1495,26 @@ function renderQuizTrend(){
     if (ta !== tb) return ta - tb;
     return String(a.date || "").localeCompare(String(b.date || ""));
   });
-  drawLine($("quizChart"), list.map(x=>({label:x.date, value: Math.round((x.score/(x.total||20))*100)})));
+  drawLine($("quizChart"), list.map(x=>({
+    date: x.date,
+    score: x.score,
+    total: x.total || 20,
+    pct: Math.round((x.score/(x.total||20))*100),
+    value: Math.round((x.score/(x.total||20))*100),
+    title: resolveQuizAttemptTitle(x)
+  })));
   if (!list.length) { $("quizHint").textContent="No quizzes yet."; return; }
   const last = list[list.length-1];
   const pct = Math.round((last.score/(last.total||20))*100);
   $("quizHint").textContent = `Last: ${last.score}/${last.total||20} (${pct}%) · total quizzes: ${list.length}`;
+}
+
+function resolveQuizAttemptTitle(item){
+  const videoId = item?.videoId || ytId(item?.url || "");
+  if (!videoId) return "Unknown video";
+  const items = cache.curation && Array.isArray(cache.curation.items) ? cache.curation.items : [];
+  const match = items.find(it => it && (it.videoId === videoId || it.url === item?.url));
+  return item?.title || match?.title || match?.channelTitle || videoId;
 }
 
 function curatedItems(){
