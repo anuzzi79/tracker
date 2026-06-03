@@ -127,7 +127,22 @@
   .nowrap{white-space:nowrap}
   .right{text-align:right}
   .small{font-size:12px}
-  .hidden{display:none !important}
+.hidden{display:none !important}
+.chart-tooltip{
+  position:fixed;
+  z-index:50;
+  pointer-events:none;
+  max-width:260px;
+  background:#f4ecd8;
+  border:2px solid var(--line);
+  border-radius:10px;
+  padding:6px 8px;
+  box-shadow:3px 3px 0 var(--line);
+  font-size:12px;
+  line-height:1.35;
+  color:var(--ink);
+  display:none;
+}
 </style>
 </head>
 <body>
@@ -375,6 +390,7 @@
     handmade · v1
   </footer>
 </div>
+<div id="chartTooltip" class="chart-tooltip" aria-hidden="true"></div>
 
 <!-- ====================================================================
      CONFIG — INCOLLA QUI LE TUE CHIAVI FIREBASE
@@ -448,6 +464,8 @@ let sharedMeasuresUnsub = null;
 let sharedNotesUnsub = null;
 let sharedChampionUnsub = null;
 let sharedQuizUnsub = null;
+let activeChartTooltip = null;
+const chartTooltipEl = $("chartTooltip");
 
 const authMsg = $("authStatus");
 
@@ -1039,14 +1057,53 @@ function drawLine(svg, points){
       p.pct != null ? `Pct: ${p.pct}%` : null,
       p.title ? `Title: ${p.title}` : null
     ].filter(Boolean).join(" | ");
-    svg.insertAdjacentHTML("beforeend",
-      `<circle cx="${x}" cy="${y}" r="4.3" fill="#b5361f" stroke="#1f1a14" stroke-width="1.2">
-         <title>${escapeHtml(tt || `Value: ${p.value}`)}</title>
-       </circle>`);
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("cx", x);
+    circle.setAttribute("cy", y);
+    circle.setAttribute("r", "4.3");
+    circle.setAttribute("fill", "#b5361f");
+    circle.setAttribute("stroke", "#1f1a14");
+    circle.setAttribute("stroke-width", "1.2");
+    circle.dataset.tooltip = tt || `Value: ${p.value}`;
+    circle.style.cursor = "help";
+    circle.addEventListener("pointerenter", e => showChartTooltip(circle, e));
+    circle.addEventListener("pointermove", e => showChartTooltip(circle, e));
+    circle.addEventListener("pointerleave", hideChartTooltip);
+    svg.appendChild(circle);
   });
   svg.insertAdjacentHTML("afterbegin",
     `<path d="${path}" fill="none" stroke="#1f1a14" stroke-width="1.8"/>`);
 }
+
+function showChartTooltip(circle, e){
+  if (!chartTooltipEl || !circle) return;
+  activeChartTooltip = circle;
+  chartTooltipEl.textContent = circle.dataset.tooltip || "";
+  chartTooltipEl.style.display = "block";
+  positionChartTooltip(e.clientX, e.clientY);
+}
+
+function positionChartTooltip(clientX, clientY){
+  if (!chartTooltipEl) return;
+  const pad = 14;
+  const rect = chartTooltipEl.getBoundingClientRect();
+  let x = clientX + 12;
+  let y = clientY + 12;
+  if (x + rect.width + pad > window.innerWidth) x = clientX - rect.width - 12;
+  if (y + rect.height + pad > window.innerHeight) y = clientY - rect.height - 12;
+  chartTooltipEl.style.left = `${Math.max(pad, x)}px`;
+  chartTooltipEl.style.top = `${Math.max(pad, y)}px`;
+}
+
+function hideChartTooltip(){
+  activeChartTooltip = null;
+  if (chartTooltipEl) chartTooltipEl.style.display = "none";
+}
+
+window.addEventListener("pointermove", e => {
+  if (activeChartTooltip) positionChartTooltip(e.clientX, e.clientY);
+});
+window.addEventListener("scroll", hideChartTooltip, { passive: true });
 
 // ---------- G. Quiz ----------
 $("openaiKey").value = "";
