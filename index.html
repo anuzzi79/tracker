@@ -128,7 +128,7 @@
   .right{text-align:right}
   .small{font-size:12px}
 .hidden{display:none !important}
-.chart-tooltip{
+  .chart-tooltip{
   position:fixed;
   z-index:50;
   pointer-events:none;
@@ -143,6 +143,32 @@
   color:var(--ink);
   display:none;
 }
+  .foldable-card{padding:0;overflow:hidden}
+  .foldable-card>summary{list-style:none;padding:14px;cursor:pointer}
+  .foldable-card>summary::-webkit-details-marker{display:none}
+  .foldable-card>summary h2{display:inline;margin:0}
+  .foldable-card>h2{display:none}
+  .foldable-card>summary::before{content:"▶";display:inline-block;margin-right:8px;font-size:14px;transition:transform .15s ease}
+  .foldable-card[open]>summary::before{transform:rotate(90deg)}
+  .foldable-body{padding:0 14px 14px}
+  .transcription-panel{border:2px solid var(--line);border-radius:8px;background:#fff8e6;margin-top:12px;box-shadow:2px 2px 0 var(--line);overflow:hidden}
+  .transcription-head{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px;border-bottom:2px solid var(--line);background:var(--paper-2)}
+  .transcription-head h3{margin:0}
+  .icon-btn{padding:4px 8px;min-height:auto;line-height:1}
+  .transcription-text{padding:12px;max-height:420px;overflow:auto;white-space:pre-wrap;user-select:text;background:var(--paper);font-family:Georgia,serif;font-size:17px;line-height:1.65}
+  .transcription-text::selection{background:#f5d36b}
+  .ai-dialog-backdrop{position:fixed;inset:0;z-index:80;background:rgba(31,26,20,.42);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+  .ai-dialog{width:min(680px,100%);max-height:86vh;background:var(--paper);border:2px solid var(--line);border-radius:8px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+  .ai-dialog-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px;border-bottom:2px solid var(--line);background:var(--paper-2)}
+  .ai-dialog-head h3{margin:0}
+  .selected-quote{padding:10px;border-bottom:1.5px dashed rgba(31,26,20,.35);font-family:Georgia,serif;background:#fff8e6;max-height:110px;overflow:auto}
+  .ai-messages{padding:10px;overflow:auto;display:flex;flex-direction:column;gap:8px;min-height:180px}
+  .ai-msg{border:1.5px solid var(--line);border-radius:8px;padding:8px;background:var(--paper-2);white-space:pre-wrap}
+  .ai-msg.user{align-self:flex-end;background:#cdebd2;max-width:86%}
+  .ai-msg.assistant{align-self:flex-start;max-width:92%}
+  .ai-chat-form{display:flex;gap:8px;padding:10px;border-top:2px solid var(--line);background:var(--paper-2)}
+  .ai-chat-form textarea{min-height:48px;max-height:120px}
+  @media (max-width:520px){.ai-chat-form{flex-direction:column}.transcription-text{font-size:16px;max-height:360px}}
 </style>
 </head>
 <body>
@@ -254,8 +280,10 @@
 
     <div class="row" style="margin-top:10px">
       <button type="button" id="btnSave" class="primary" disabled>💾 Save session</button>
+      <button type="button" id="btnTranscriptionStudy" disabled>Transcription Study</button>
       <span id="saveStatus" class="muted small"></span>
     </div>
+    <div id="newTranscriptionStudy" class="hidden"></div>
     <div id="lastSaved" class="hidden" style="margin-top:10px">
       <div class="hr"></div>
       <h3>Last saved session</h3>
@@ -298,8 +326,10 @@
   </section>
 
   <!-- ============ C. HISTORY ============ -->
-  <section class="card">
+  <details class="card foldable-card" id="historyDetails">
+    <summary><h2>Session history</h2></summary>
     <h2>📜 Session history</h2>
+    <div class="foldable-body">
     <div style="overflow:auto">
       <table id="histTable">
         <thead><tr><th>Date</th><th>Video</th><th>L</th><th>R</th><th></th></tr></thead>
@@ -307,7 +337,9 @@
       </table>
     </div>
     <p class="muted small" id="histEmpty">No sessions yet.</p>
-  </section>
+    <div id="historyTranscriptionStudy" class="hidden"></div>
+    </div>
+  </details>
 
   <!-- ============ D. COMPREHENSION ============ -->
   <section class="card">
@@ -666,10 +698,19 @@ function applySharedCuratedSelection(url){
   if (!selected) return;
   localStorage.setItem("pending_curated_url_v1", selected);
   if (sessUrl.value !== selected) {
+    resetCurrentTranscriptionStudy();
     sessUrl.value = selected;
   }
   refreshPreview();
   lastAppliedCuratedSelection = selected;
+}
+
+function resetCurrentTranscriptionStudy(){
+  currentTranscriptionStudy = null;
+  activeTranscriptionSessionId = null;
+  $("newTranscriptionStudy").innerHTML = "";
+  $("newTranscriptionStudy").classList.add("hidden");
+  closeAiDialog();
 }
 
 async function persistSharedCuratedSelection(url){
@@ -746,11 +787,14 @@ function attachThumbFallback(img, id){
 // ---------- A. New session ----------
 const sessUrl = $("sessUrl"), sessPrev = $("sessPreview"), sessThumb=$("sessThumb"), sessOpen=$("sessOpen");
 const sessDate = $("sessDate"), sessTs = $("sessTs");
-const btnAscolto = $("btnAscolto"), btnRiascolto = $("btnRiascolto"), btnSave = $("btnSave");
+const btnAscolto = $("btnAscolto"), btnRiascolto = $("btnRiascolto"), btnSave = $("btnSave"), btnTranscriptionStudy = $("btnTranscriptionStudy");
 const stepA = $("stepA"), stepR = $("stepR");
 const lastSaved = $("lastSaved"), lastThumb=$("lastThumb"), lastOpen=$("lastOpen");
 const saveStatus = $("saveStatus");
 let ascoltoDone=false, riascoltoDone=false;
+let currentTranscriptionStudy = null;
+let activeTranscriptionSessionId = null;
+let activeAiDialog = null;
 sessDate.value = todayISO();
 const curatedPrefill = new URLSearchParams(location.search).get("curated") || localStorage.getItem("pending_curated_url_v1");
 if (curatedPrefill) {
@@ -773,6 +817,7 @@ function refreshPreview() {
   refreshSaveButton();
 }
 sessUrl.addEventListener("input", () => {
+  resetCurrentTranscriptionStudy();
   refreshPreview();
   scheduleSharedCuratedSelectionPersist(sessUrl.value);
 });
@@ -790,10 +835,13 @@ function setRiascolto(v) {
   riascoltoDone = v;
   stepR.classList.toggle("done", v);
   btnRiascolto.textContent = v ? "✓ Re-listen done" : "Re-listen done";
+  btnTranscriptionStudy.disabled = !v || !ytId(sessUrl.value);
+  if (!v) resetCurrentTranscriptionStudy();
   refreshSaveButton();
 }
 function refreshSaveButton(){
   btnSave.disabled = !(ascoltoDone && riascoltoDone && ytId(sessUrl.value));
+  btnTranscriptionStudy.disabled = !(riascoltoDone && ytId(sessUrl.value));
 }
 function bindTap(el, handler){
   let tapped = false;
@@ -823,6 +871,7 @@ btnSave.addEventListener("click", async () => {
     timestamp: sessTs.value.trim(),
     ascolto: true,
     riascolto: true,
+    transcriptionStudy: currentTranscriptionStudy || null,
     createdAt: serverTimestamp()
   };
   try {
@@ -891,6 +940,15 @@ function renderHist(){
     tr.appendChild(tdA); tr.appendChild(tdR);
 
     const tdDel = document.createElement("td"); tdDel.className="right";
+    if (s.transcriptionStudy?.text) {
+      const studyBtn = document.createElement("button");
+      studyBtn.className = "ghost small";
+      studyBtn.textContent = "Transcription";
+      studyBtn.style.padding = "4px 8px";
+      studyBtn.style.minHeight = "auto";
+      studyBtn.onclick = () => renderTranscriptionPanel("history", s.transcriptionStudy, s);
+      tdDel.appendChild(studyBtn);
+    }
     const delBtn = document.createElement("button"); delBtn.className="ghost small"; delBtn.textContent="🗑";
     delBtn.style.padding="4px 8px"; delBtn.style.minHeight="auto";
     delBtn.onclick = async () => {
@@ -1182,9 +1240,9 @@ function refreshQuizGate(){
   }
 }
 
-async function fetchTranscriptAuto(videoId){
+async function fetchTranscriptAuto(videoId, statusElId = "quizStatus"){
   const log = (...a) => console.log("[transcript]", ...a);
-  const setStatus = msg => { $("quizStatus").textContent = msg; };
+  const setStatus = msg => { if ($(statusElId)) $(statusElId).textContent = msg; };
   const supadataKey = localStorage.getItem(SUPADATA_KEY_LS);
   if (supadataKey) {
     setStatus("Fetching transcript from Supadata…");
@@ -1383,6 +1441,217 @@ async function fetchTranscriptAuto(videoId){
   }
   throw new Error(`YouTube blocked every automatic subtitle attempt. ${errors.join(" | ")}`);
 }
+
+function splitTranscriptForFormatting(text){
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  const chunks = [];
+  let rest = clean;
+  while (rest.length > 9000) {
+    let cut = rest.lastIndexOf(" ", 9000);
+    if (cut < 5000) cut = 9000;
+    chunks.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) chunks.push(rest);
+  return chunks;
+}
+
+async function formatTranscriptWithAI(rawTranscript, statusElId){
+  const key = localStorage.getItem(KEY_LS);
+  if (!key) throw new Error("Enter the OpenAI key in Settings.");
+  const chunks = splitTranscriptForFormatting(rawTranscript);
+  if (!chunks.length) throw new Error("Transcript too short/missing.");
+  const formatted = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if ($(statusElId)) $(statusElId).textContent = `Adding punctuation with OpenAI (${i+1}/${chunks.length})...`;
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        messages: [
+          {role:"system", content:"You restore punctuation and paragraph breaks in raw English video transcripts. Do not summarize, translate, explain, add headings, or change meaning. Keep the original words unless an obvious ASR spacing artifact needs minimal repair."},
+          {role:"user", content:`Add natural punctuation and paragraph breaks to this English transcript chunk. Return only the corrected transcript text.\n\nTRANSCRIPT CHUNK:\n"""${chunks[i]}"""`}
+        ],
+        temperature: 0.2
+      })
+    });
+    if (!res.ok) throw new Error("OpenAI HTTP "+res.status+" "+await res.text());
+    const j = await res.json();
+    const out = (j.choices?.[0]?.message?.content || "").trim();
+    if (!out) throw new Error("OpenAI returned an empty transcript.");
+    formatted.push(out);
+  }
+  return formatted.join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function buildTranscriptionStudy(videoId, url, rawTranscript, text){
+  return {
+    videoId,
+    url,
+    rawLength: rawTranscript.length,
+    text,
+    model: OPENAI_MODEL,
+    createdAtClient: new Date().toISOString()
+  };
+}
+
+function renderTranscriptionPanel(scope, study, session=null){
+  const host = scope === "history" ? $("historyTranscriptionStudy") : $("newTranscriptionStudy");
+  if (!host || !study?.text) return;
+  host.innerHTML = "";
+  host.classList.remove("hidden");
+  const panel = document.createElement("div");
+  panel.className = "transcription-panel";
+  const title = session?.date ? `Transcription - ${fmtDate(session.date)}` : "Transcription";
+  panel.innerHTML = `
+    <div class="transcription-head">
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <div class="muted small">Highlight text to ask the AI teacher.</div>
+      </div>
+      <button type="button" class="ghost icon-btn" aria-label="Close transcription">X</button>
+    </div>
+    <div class="transcription-text" tabindex="0">${escapeHtml(study.text)}</div>
+  `;
+  panel.querySelector("button").onclick = () => {
+    host.classList.add("hidden");
+    host.innerHTML = "";
+    closeAiDialog();
+  };
+  const textEl = panel.querySelector(".transcription-text");
+  const openFromSelection = () => {
+    const sel = window.getSelection();
+    const selected = String(sel?.toString() || "").trim();
+    if (!selected || selected.length < 2) return;
+    if (!textEl.contains(sel.anchorNode) || !textEl.contains(sel.focusNode)) return;
+    openAiDialogForSelection(selected, study.text);
+  };
+  textEl.addEventListener("mouseup", () => setTimeout(openFromSelection, 0));
+  textEl.addEventListener("touchend", () => setTimeout(openFromSelection, 250));
+  host.appendChild(panel);
+  if (scope === "history") $("historyDetails").open = true;
+}
+
+function transcriptContext(fullText, selected){
+  const full = String(fullText || "");
+  const idx = full.toLowerCase().indexOf(String(selected || "").toLowerCase());
+  if (idx < 0) return full.slice(0, 3000);
+  const start = Math.max(0, idx - 1200);
+  const end = Math.min(full.length, idx + selected.length + 1200);
+  return full.slice(start, end);
+}
+
+function closeAiDialog(){
+  if (activeAiDialog?.backdrop) activeAiDialog.backdrop.remove();
+  activeAiDialog = null;
+}
+
+function openAiDialogForSelection(selected, fullText){
+  closeAiDialog();
+  const backdrop = document.createElement("div");
+  backdrop.className = "ai-dialog-backdrop";
+  const context = transcriptContext(fullText, selected);
+  const messages = [];
+  backdrop.innerHTML = `
+    <div class="ai-dialog" role="dialog" aria-modal="true" aria-label="AI English teacher">
+      <div class="ai-dialog-head">
+        <h3>AI English teacher</h3>
+        <button type="button" class="ghost icon-btn" aria-label="Close dialog">X</button>
+      </div>
+      <div class="selected-quote">${escapeHtml(selected)}</div>
+      <div class="ai-messages"></div>
+      <form class="ai-chat-form">
+        <textarea aria-label="Message" placeholder="Ask about grammar, meaning, pronunciation, register..."></textarea>
+        <button type="submit" class="primary">Send</button>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  activeAiDialog = { backdrop, selected, context, messages };
+  const dialog = backdrop.querySelector(".ai-dialog");
+  const list = backdrop.querySelector(".ai-messages");
+  const input = backdrop.querySelector("textarea");
+  backdrop.querySelector(".ai-dialog-head button").onclick = closeAiDialog;
+  backdrop.addEventListener("click", e => { if (e.target === backdrop) closeAiDialog(); });
+  dialog.addEventListener("click", e => e.stopPropagation());
+
+  function addMsg(role, text){
+    const el = document.createElement("div");
+    el.className = `ai-msg ${role}`;
+    el.textContent = text;
+    list.appendChild(el);
+    list.scrollTop = list.scrollHeight;
+  }
+  addMsg("assistant", "Dimmi cosa vuoi chiarire su questa parte: grammatica, lessico, pronuncia, registro o uso naturale nell'inglese americano.");
+
+  backdrop.querySelector("form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const userText = input.value.trim();
+    if (!userText) return;
+    input.value = "";
+    addMsg("user", userText);
+    activeAiDialog.messages.push({ role:"user", content:userText });
+    const waiting = document.createElement("div");
+    waiting.className = "ai-msg assistant";
+    waiting.textContent = "Thinking...";
+    list.appendChild(waiting);
+    try {
+      const key = localStorage.getItem(KEY_LS);
+      if (!key) throw new Error("Enter the OpenAI key in Settings.");
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "Authorization":"Bearer "+key },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          messages: [
+            {role:"system", content:"You are an American English teacher specialized in current, contemporary spoken English. Answer in the user's language when clear. Teach grammar, usage, meaning, register, pronunciation, reductions, idioms, and natural alternatives. Base the answer on the highlighted text and its transcript context."},
+            {role:"user", content:`Highlighted text:\n"""${selected}"""\n\nTranscript context:\n"""${context}"""`},
+            ...activeAiDialog.messages
+          ],
+          temperature: 0.45
+        })
+      });
+      if (!res.ok) throw new Error("OpenAI HTTP "+res.status+" "+await res.text());
+      const j = await res.json();
+      const answer = (j.choices?.[0]?.message?.content || "").trim();
+      waiting.textContent = answer || "No answer returned.";
+      activeAiDialog.messages.push({ role:"assistant", content:waiting.textContent });
+    } catch(err) {
+      waiting.textContent = "Error: " + err.message;
+    }
+    list.scrollTop = list.scrollHeight;
+  });
+  input.focus();
+}
+
+async function startTranscriptionStudy(){
+  const videoId = ytId(sessUrl.value);
+  if (!videoId || !riascoltoDone) return;
+  btnTranscriptionStudy.disabled = true;
+  saveStatus.textContent = "Fetching transcript for study...";
+  try {
+    let raw = "";
+    try {
+      raw = await fetchTranscriptAuto(videoId, "saveStatus");
+    } catch(fetchErr) {
+      const manual = $("manualTranscript")?.value?.trim() || "";
+      if (manual.length < 80) throw fetchErr;
+      raw = manual;
+      saveStatus.textContent = "Auto-fetch failed. Using pasted manual transcript...";
+    }
+    const text = await formatTranscriptWithAI(raw, "saveStatus");
+    currentTranscriptionStudy = buildTranscriptionStudy(videoId, sessUrl.value.trim(), raw, text);
+    renderTranscriptionPanel("new", currentTranscriptionStudy);
+    saveStatus.innerHTML = '<span class="ok-banner">Transcription ready. Save the session to keep it in history.</span>';
+  } catch(e) {
+    saveStatus.innerHTML = `<span class="err-banner">Transcription error: ${escapeHtml(e.message)}<br>Fix: save a Supadata API key in Settings, or paste the YouTube transcript in AI Quiz -> Manual transcript and retry Transcription Study.</span>`;
+  } finally {
+    btnTranscriptionStudy.disabled = !(riascoltoDone && ytId(sessUrl.value));
+  }
+}
+
+btnTranscriptionStudy.addEventListener("click", startTranscriptionStudy);
 
 let currentQuiz = null;
 

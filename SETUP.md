@@ -119,3 +119,9 @@ Anche `sessions`, `measures`, `notes` e `champion` vivono adesso nel backend con
 - `shared/champion`
 
 Queste collection alimentano la card `Consistency (this week)`, la card `Session history`, la card `Comprehension`, la card `Notes` e il `Champion video` in tutte le sessioni aperte.
+
+## 9) Transcription Study
+
+Le trascrizioni ripulite dall'AI vengono salvate nel campo `transcriptionStudy` del documento `sharedSessions/{sessionId}`. Non servono nuove Firestore Rules se hai gia' applicato il blocco sopra per `sharedSessions`.
+
+Nota pratica: Firestore limita ogni documento a circa 1 MiB. Per video molto lunghi potrebbe essere necessario spostare la trascrizione in una collection separata.
